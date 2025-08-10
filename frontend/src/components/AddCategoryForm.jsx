@@ -1,0 +1,74 @@
+import React, { useState } from 'react';
+import axiosInstance from '../axiosConfig';
+
+
+export default function AddCategoryForm({ onClose, onCreated }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    status: 'Active',
+  });
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+
+    try {
+      const res = await axiosInstance.post('/api/categories', {
+        name: formData.name.trim(),
+        description: formData.description,
+        status: formData.status,
+      });
+
+      setFormData({ name: '', description: '', status: 'Active' });
+      if (onCreated) onCreated(res.data);
+      if (onClose) onClose();
+    } catch (err) {
+      if (err.response) {
+        setError(err.response.data.message || 'Failed to create category');
+      } else {
+        setError('Server error. Try again later.');
+      }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white p-6 shadow-md rounded mb-6">
+      <h1 className="text-2xl font-bold mb-4">Add New Category</h1>
+
+      {/* Name */}
+      <input
+        type="text"
+        placeholder="Name"
+        value={formData.name}
+        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        className="w-full mb-4 p-2 border rounded"
+      />
+
+      {/* Description */}
+      <input
+        type="text"
+        placeholder="Description"
+        value={formData.description}
+        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+        className="w-full mb-4 p-2 border rounded"
+      />
+
+      {/* Status Dropdown */}
+      <select
+        value={formData.status}
+        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+        className="w-full mb-4 p-2 border rounded"
+      >
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+      </select>
+
+      <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">
+        Create Category
+      </button>
+    </form>
+  );
+}
