@@ -1,6 +1,18 @@
 const Category = require('../models/Category');
 
 module.exports = {
+  // GET /api/categories
+  list: async (req, res) => {
+    try {
+      const categories = await Category.find().sort({ createdAt: -1 }).lean();
+      return res.status(200).json(categories);
+    } catch (err) {
+      return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+  },
+}
+
+module.exports = {
   // POST /api/categories
   create: async (req, res) => {
     try {

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import axiosInstance from '../axiosConfig';
-
+import { useAuth } from '../context/AuthContext';
 
 export default function AddCategoryForm({ onClose, onCreated }) {
+  const { user } = useAuth();  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -25,17 +26,20 @@ export default function AddCategoryForm({ onClose, onCreated }) {
         name: formData.name.trim(),
         description: formData.description,
         status: formData.status,
+      }, {
+        headers: { Authorization: `Bearer ${user?.token}` }
       });
       setSuccess('Category created successfully!');
       setFormData({ name: '', description: '', status: 'Active' });
       if (onCreated) onCreated(res.data);
       if (onClose) onClose();
     } catch (err) {
-      if (err.response) {
-        setError(err.response.data.message || 'Failed to create category');
-      } else {
-        setError('Server error. Try again later.');
-      }
+      const status = err?.response?.status;
+      const msg =
+        status === 401 ? 'Please log in again.'
+        : status === 403 ? 'Only admins can create categories.'
+        : err?.response?.data?.message || 'Failed to create category';
+      setError(msg);
     }
   };
 
