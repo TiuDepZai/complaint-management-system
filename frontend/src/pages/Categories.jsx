@@ -67,6 +67,9 @@ export default function Categories() {
       const headers = user?.token ? { Authorization: `Bearer ${user.token}` } : {};
       await axiosInstance.delete(`/api/categories/${category._id}`, { headers });
       setCategories((prev) => prev.filter((c) => c._id !== category._id));
+      setPageSuccess('Category deleted successfully!');        
+      setTimeout(() => setPageSuccess(''), 3000);              
+
     } catch (err) {
       console.error('Failed to delete category', err?.response?.data || err?.message);
     } finally {
