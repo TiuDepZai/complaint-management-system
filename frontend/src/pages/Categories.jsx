@@ -10,7 +10,7 @@ export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pageSuccess, setPageSuccess] = useState(''); // <-- NEW
+  const [pageSuccess, setPageSuccess] = useState(''); 
   const { user } = useAuth();
 
   const StatusBadge = ({ status }) => {
@@ -43,18 +43,18 @@ export default function Categories() {
       }
     })();
     return () => { isMounted = false; };
-  }, [user?.token]); // <-- updated
+  }, [user?.token]); 
 
   const handleCreated = (newCategory) => {
     setCategories((prev) => [newCategory, ...prev]);
-    setPageSuccess('Category created successfully!');        // <-- NEW
-    setTimeout(() => setPageSuccess(''), 3000);              // <-- NEW (auto-hide)
+    setPageSuccess('Category created successfully!');        
+    setTimeout(() => setPageSuccess(''), 3000);              
   };
 
   const handleUpdated = (updated) => {
     setCategories((prev) => prev.map(c => (c._id === updated._id ? updated : c)));
-    setPageSuccess('Category updated successfully!');        // <-- NEW
-    setTimeout(() => setPageSuccess(''), 3000);              // <-- NEW
+    setPageSuccess('Category updated successfully!');        
+    setTimeout(() => setPageSuccess(''), 3000);              
   };
 
   return (
