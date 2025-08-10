@@ -10,7 +10,18 @@ export default function Categories() {
   const [error, setError] = useState('');
   const { user } = useAuth();
 
-
+  const StatusBadge = ({ status }) => {
+  const isActive = (status || '').toLowerCase() === 'active';
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border 
+        ${isActive ? 'bg-green-100 text-green-800 border-green-200'
+                   : 'bg-gray-100 text-gray-800 border-gray-200'}`}
+    >
+      {status || '-'}
+    </span>
+    );
+  };
   // Load categories on mount
   useEffect(() => {
     let isMounted = true;
@@ -67,7 +78,7 @@ export default function Categories() {
             >
             <div>{c.name}</div>
             <div className="truncate">{c.description || '-'}</div>
-            <div>{c.status}</div>
+            <div><StatusBadge status={c.status} /></div>
             </div>
         ))}
 
