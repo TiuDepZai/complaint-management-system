@@ -6,6 +6,6 @@ const { protect } = require('../middleware/authMiddleware');
 
 router.post('/', protect, requireRole('admin'), CategoryController.create);
 router.get('/', protect, requireRole('admin'), CategoryController.list);
-router.put('/', protect, requireRole('admin'), CategoryController.update);
+router.put('/:id', protect, requireRole('admin'), CategoryController.update);
 
 module.exports = router;
