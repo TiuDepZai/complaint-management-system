@@ -8,6 +8,7 @@ export default function AddCategoryForm({ onClose, onCreated }) {
     description: '',
     status: 'Active',
   });
+  const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -25,7 +26,7 @@ export default function AddCategoryForm({ onClose, onCreated }) {
         description: formData.description,
         status: formData.status,
       });
-
+      setSuccess('Category created successfully!');
       setFormData({ name: '', description: '', status: 'Active' });
       if (onCreated) onCreated(res.data);
       if (onClose) onClose();
@@ -70,6 +71,7 @@ export default function AddCategoryForm({ onClose, onCreated }) {
         <option value="Inactive">Inactive</option>
       </select>
       {error && <div className="text-red-600 mb-2">{error}</div>}
+      {success && <div className="text-green-600 mb-2">{success}</div>}
       <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">
         Create Category
       </button>
