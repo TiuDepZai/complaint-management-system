@@ -39,4 +39,50 @@ const create = async (req, res) => {
   }
 };
 
-module.exports = { list, create };
+const update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, status } = req.body;
+
+    const updates = {};
+
+    // name must be non-empty and unique (case-insensitive)
+    if (name !== undefined) {
+      const trimmed = name.trim();
+      if (!trimmed) return res.status(400).json({ message: 'Name is required' });
+
+      const dupe = await Category.findOne({ name: trimmed })
+        .collation({ locale: 'en', strength: 2 });
+      if (dupe && String(dupe._id) !== String(id)) {
+        return res.status(409).json({ message: 'Category name already exists' });
+      }
+      updates.name = trimmed;
+    }
+
+    // status: optional; if provided, must be valid
+    if (status !== undefined) {
+      if (!['Active', 'Inactive'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+      updates.status = status;
+    }
+
+    // description: optional (allow empty string)
+    if (description !== undefined) {
+      updates.description = description;
+    }
+
+    const updated = await Category.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+      context: 'query',
+    });
+
+    if (!updated) return res.status(404).json({ message: 'Not found' });
+    return res.json(updated);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { list, create, update };
