@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import AddCategoryForm from '../components/AddCategoryForm';
-import EditCategoryForm from '../components/EditCategoryForm'; // <-- NEW
+import EditCategoryForm from '../components/EditCategoryForm';
 import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
 export default function Categories() {
   const [showForm, setShowForm] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null); // <-- NEW
+  const [editingCategory, setEditingCategory] = useState(null);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pageSuccess, setPageSuccess] = useState(''); // <-- NEW
   const { user } = useAuth();
 
   const StatusBadge = ({ status }) => {
@@ -25,7 +26,7 @@ export default function Categories() {
     );
   };
 
-  // Load categories on mount
+  // Load categories (refetch if token changes)
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -42,14 +43,18 @@ export default function Categories() {
       }
     })();
     return () => { isMounted = false; };
-  }, []);
+  }, [user?.token]); // <-- updated
 
   const handleCreated = (newCategory) => {
     setCategories((prev) => [newCategory, ...prev]);
+    setPageSuccess('Category created successfully!');        // <-- NEW
+    setTimeout(() => setPageSuccess(''), 3000);              // <-- NEW (auto-hide)
   };
 
   const handleUpdated = (updated) => {
     setCategories((prev) => prev.map(c => (c._id === updated._id ? updated : c)));
+    setPageSuccess('Category updated successfully!');        // <-- NEW
+    setTimeout(() => setPageSuccess(''), 3000);              // <-- NEW
   };
 
   return (
@@ -63,6 +68,23 @@ export default function Categories() {
           Add New Category
         </button>
       </div>
+
+      {/* Page-level success banner */}
+      {pageSuccess && (
+        <div
+          className="mb-3 flex items-center justify-between rounded border border-green-200 bg-green-50 px-4 py-2 text-green-800"
+          role="status" aria-live="polite"
+        >
+          <span>{pageSuccess}</span>
+          <button
+            onClick={() => setPageSuccess('')}
+            className="text-green-700 hover:text-green-900"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {loading && <div className="text-gray-600">Loading…</div>}
       {error && <div className="text-red-600 mb-2">{error}</div>}
@@ -94,9 +116,9 @@ export default function Categories() {
                 aria-label={`Edit ${c.name}`}
                 title="Edit"
               >
-                {/* Pencil icon (inline SVG, no extra lib) */}
+                {/* Pencil icon (inline SVG) */}
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 0.75a1 1 0 01-1.213-1.213l0.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 .75a1 1 0 01-1.213-1.213l.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
                 </svg>
               </button>
             </div>
