@@ -53,20 +53,28 @@ export default function Categories() {
       {error && <div className="text-red-600 mb-2">{error}</div>}
 
       {/* Simple list/table of categories */}
-      <div className="bg-white shadow-md rounded">
-        <div className="grid grid-cols-3 font-semibold px-4 py-3 border-b">
-          <div>Name</div>
-          <div>Description</div>
-          <div>Status</div>
+      <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
+        <div className="grid grid-cols-3 font-semibold px-4 py-3 border-b bg-gray-50">
+            <div>Name</div>
+            <div>Description</div>
+            <div>Status</div>
         </div>
+
         {categories.map((c) => (
-          <div key={c._id} className="grid grid-cols-3 px-4 py-3 border-b">
+            <div
+            key={c._id}
+            className="grid grid-cols-3 px-4 py-3 border-b hover:bg-gray-50 transition-colors"
+            >
             <div>{c.name}</div>
             <div className="truncate">{c.description || '-'}</div>
             <div>{c.status}</div>
-          </div>
+            </div>
         ))}
-      </div>
+
+        {!loading && categories.length === 0 && (
+            <div className="px-4 py-3 text-gray-600">No categories yet.</div>
+        )}
+        </div>
 
       {showForm && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
