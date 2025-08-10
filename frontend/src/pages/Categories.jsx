@@ -10,7 +10,8 @@ export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pageSuccess, setPageSuccess] = useState(''); 
+  const [pageSuccess, setPageSuccess] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
   const { user } = useAuth();
 
   const StatusBadge = ({ status }) => {
@@ -55,6 +56,22 @@ export default function Categories() {
     setCategories((prev) => prev.map(c => (c._id === updated._id ? updated : c)));
     setPageSuccess('Category updated successfully!');        
     setTimeout(() => setPageSuccess(''), 3000);              
+  };
+
+  const handleDelete = async (category) => {
+    const ok = window.confirm(`Are you sure you want to delete "${category.name}"?`);
+    if (!ok) return;
+
+    try {
+      setDeletingId(category._id);
+      const headers = user?.token ? { Authorization: `Bearer ${user.token}` } : {};
+      await axiosInstance.delete(`/api/categories/${category._id}`, { headers });
+      setCategories((prev) => prev.filter((c) => c._id !== category._id));
+    } catch (err) {
+      console.error('Failed to delete category', err?.response?.data || err?.message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -120,6 +137,36 @@ export default function Categories() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 .75a1 1 0 01-1.213-1.213l.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
                 </svg>
+              </button>
+
+              {/* Delete (red trash) */}
+              <button
+                type="button"
+                onClick={() => handleDelete(c)}
+                disabled={deletingId === c._id}
+                className={`p-2 rounded focus:outline-none focus:ring focus:ring-red-200 ${
+                  deletingId === c._id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50'
+                }`}
+                aria-label={`Delete ${c.name}`}
+                title="Delete"
+                >
+                <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-red-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}          // thicker stroke
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                >
+                <path d="M3 6h18" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+                <path d="M9 6V5a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1" />
+                </svg>
+
               </button>
             </div>
           </div>
