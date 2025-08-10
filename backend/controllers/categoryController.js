@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Category = require('../models/Category');
 const Complaint = require('../models/Complaint');
 const list = async (req, res) => {
