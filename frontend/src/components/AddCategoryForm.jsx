@@ -15,7 +15,7 @@ export default function AddCategoryForm({ onClose, onCreated }) {
     setError('');
 
      if (!formData.name.trim()) {
-      setError('Name is required');
+      setError('Category Name is required');
       return;
     }
 
