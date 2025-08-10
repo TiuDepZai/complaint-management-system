@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import AddCategoryForm from '../components/AddCategoryForm';
 import axiosInstance from '../axiosConfig';
+import { useAuth } from '../context/AuthContext';
 
 export default function Categories() {
   const [showForm, setShowForm] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { user } = useAuth();
+
 
   // Load categories on mount
   useEffect(() => {
@@ -15,7 +18,10 @@ export default function Categories() {
       try {
         setLoading(true);
         setError('');
-        const res = await axiosInstance.get('/api/categories');
+        const headers = user?.token
+        ? { Authorization: `Bearer ${user.token}` }
+        : {};
+        const res = await axiosInstance.get('/api/categories', { headers });
         if (isMounted) setCategories(res.data || []);
       } catch (err) {
         if (isMounted) setError('Failed to load categories.');
@@ -60,9 +66,6 @@ export default function Categories() {
             <div>{c.status}</div>
           </div>
         ))}
-        {!loading && categories.length === 0 && (
-          <div className="px-4 py-3 text-gray-600">No categories yet.</div>
-        )}
       </div>
 
       {showForm && (
