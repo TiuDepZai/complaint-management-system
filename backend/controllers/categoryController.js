@@ -1,5 +1,5 @@
 const Category = require('../models/Category');
-
+const Complaint = require('../models/Complaint');
 const list = async (req, res) => {
   try {
     const categories = await Category.find().sort({ createdAt: -1 }).lean();
@@ -85,4 +85,26 @@ const update = async (req, res) => {
   }
 };
 
-module.exports = { list, create, update };
+const remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid category id' });
+    }
+
+    // block delete if any complaint uses this category
+    const inUse = await Complaint.exists({ category: id });
+    if (inUse) {
+      return res.status(409).json({ message: 'Category is in use by one or more complaints' });
+    }
+
+    const deleted = await Category.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: 'Not found' });
+
+    return res.status(204).send(); // no content
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { list, create, update, remove };
