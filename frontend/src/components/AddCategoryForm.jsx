@@ -14,6 +14,10 @@ export default function AddCategoryForm({ onClose, onCreated }) {
     e.preventDefault();
     setError('');
 
+     if (!formData.name.trim()) {
+      setError('Name is required');
+      return;
+    }
 
     try {
       const res = await axiosInstance.post('/api/categories', {
@@ -65,7 +69,7 @@ export default function AddCategoryForm({ onClose, onCreated }) {
         <option value="Active">Active</option>
         <option value="Inactive">Inactive</option>
       </select>
-
+      {error && <div className="text-red-600 mb-2">{error}</div>}
       <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">
         Create Category
       </button>
