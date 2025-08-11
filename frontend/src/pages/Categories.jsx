@@ -12,7 +12,7 @@ export default function Categories() {
   const [error, setError] = useState('');
   const [pageSuccess, setPageSuccess] = useState('');
   const [deletingId, setDeletingId] = useState(null);
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
 
   const StatusBadge = ({ status }) => {
     const isActive = (status || '').toLowerCase() === 'active';
@@ -27,24 +27,28 @@ export default function Categories() {
     );
   };
 
-  // Load categories (refetch if token changes)
+  // Load categories
   useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setError('');
-        const headers = user?.token ? { Authorization: `Bearer ${user.token}` } : {};
-        const res = await axiosInstance.get('/api/categories', { headers });
-        if (isMounted) setCategories(res.data || []);
-      } catch (err) {
-        if (isMounted) setError('Failed to load categories.');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
-    return () => { isMounted = false; };
-  }, [user?.token]); 
+  if (!authReady) return;             // wait until user is loaded from storage
+
+  if (!user?.token) {                 
+    setLoading(false);
+    setCategories([]);
+    return;
+  }
+
+  let ignore = false;
+  setLoading(true);
+
+  const headers = { Authorization: `Bearer ${user.token}` };
+  axiosInstance
+    .get('/api/categories', { headers })
+    .then(res => { if (!ignore) setCategories(res.data || []); })
+    .catch(() => { if (!ignore) setError('Failed to load categories.'); })
+    .finally(() => { if (!ignore) setLoading(false); });
+
+  return () => { ignore = true; };
+}, [authReady, user?.token]); 
 
   const handleCreated = (newCategory) => {
     setCategories((prev) => [newCategory, ...prev]);
