@@ -7,12 +7,14 @@ const connectDB = require('./config/db');
 dotenv.config();
 
 const categoryRoutes = require('./routes/categoryRoutes');
+const complaintRoutes = require('./routes/complaintRoutes');
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/categories', categoryRoutes);
+app.use('/api/complaints', complaintRoutes);
 //app.use('/api/tasks', require('./routes/taskRoutes'));
 
 async function ensureFirstAdmin() {
