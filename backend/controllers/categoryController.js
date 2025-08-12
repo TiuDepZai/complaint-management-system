@@ -10,6 +10,18 @@ const list = async (req, res) => {
   }
 };
 
+const listActive = async (req, res) => {
+  try {
+    const categories = await Category.find({ status: 'Active' })
+      .select('_id name')          // only what the dropdown needs
+      .sort({ name: 1 })
+      .lean();
+    return res.json(categories);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 const create = async (req, res) => {
   try {
     const { name, description, status } = req.body;
@@ -108,4 +120,4 @@ const remove = async (req, res) => {
   }
 };
 
-module.exports = { list, create, update, remove };
+module.exports = { list, listActive, create, update, remove };
