@@ -34,4 +34,33 @@ const create = async (req, res) => {
   }
 };
 
-module.exports = { create };
+const list = async (req, res) => {
+  try {
+    const { id: userId, role } = req.user;
+    let match = { createdBy: userId };               // default: only my complaints
+
+    // Optional: admin can see others via ?userId=... or all via ?all=1
+    if (role === 'admin') {
+      const { userId: qUserId, all } = req.query;
+      if (all === '1') {
+        match = {};                                   // all complaints
+      } else if (qUserId) {
+        if (!mongoose.Types.ObjectId.isValid(qUserId)) {
+          return res.status(400).json({ message: 'Invalid userId' });
+        }
+        match = { createdBy: qUserId };
+      }
+    }
+
+    const complaints = await Complaint.find(match)
+      .populate('category', 'name status')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json(complaints);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+module.exports = { create, list };
