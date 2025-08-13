@@ -115,4 +115,28 @@ const update = async (req, res) => {
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
-module.exports = { create, list, update };
+const remove = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid complaint id' });
+    }
+
+    // fetch minimal doc to check ownership
+    const existing = await Complaint.findById(id).select('createdBy');
+    if (!existing) return res.status(404).json({ message: 'Not found' });
+
+    // allow admin or owner
+    const isOwner = String(existing.createdBy) === String(req.user.id);
+    const isAdmin = req.user.role === 'admin';
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    await existing.deleteOne();
+    return res.status(204).send();
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+module.exports = { create, list, update, remove };
