@@ -8,6 +8,8 @@ export default function Complaints() {
   const [search, setSearch] = useSearchParams();
   const [open, setOpen] = useState(false);
 
+  const [pageSuccess, setPageSuccess] = useState('');
+
   useEffect(() => {
     if (search.get('new') === '1' && user?.token) setOpen(true);
   }, [search, user?.token]);
@@ -18,6 +20,15 @@ export default function Complaints() {
       search.delete('new');
       setSearch(search, { replace: true });
     }
+  };
+
+
+  const handleSubmitted = (created) => {
+    closeForm();
+    // Show reference number
+    setPageSuccess(`Complaint submitted successfully! Reference: ${created.reference}`);
+    // optional auto-dismiss
+    setTimeout(() => setPageSuccess(''), 4000);
   };
 
   return (
@@ -34,6 +45,22 @@ export default function Complaints() {
         )}
       </div>
 
+      {pageSuccess && (
+        <div
+          className="mb-3 flex items-center justify-between rounded border border-green-200 bg-green-50 px-4 py-2 text-green-800"
+          role="status" aria-live="polite"
+        >
+          <span>{pageSuccess}</span>
+          <button
+            onClick={() => setPageSuccess('')}
+            className="text-green-700 hover:text-green-900"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {!user?.token && (
         <div className="text-gray-700">Please log in to register a complaint.</div>
       )}
@@ -43,7 +70,7 @@ export default function Complaints() {
           <div className="w-full max-w-lg">
             <ComplaintForm
               onClose={closeForm}
-              onSubmitted={() => closeForm()}  // just close for now
+              onSubmitted={handleSubmitted} 
             />
           </div>
         </div>

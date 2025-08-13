@@ -26,6 +26,8 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
   const [catLoading, setCatLoading] = useState(true);
   const [catError, setCatError] = useState('');
 
+  const [apiError, setApiError] = useState('');
+
   const validate = (values) => {
     const e = {};
     if (!values.name.trim()) e.name = 'Name is required';
@@ -73,14 +75,9 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
     return () => { ignore = true; };
   }, [user?.token]);
 
-  // Submit to backend
-  const [apiError, setApiError] = useState('');
-  const [apiSuccess, setApiSuccess] = useState('');
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setApiError('');
-    setApiSuccess('');
 
     const v = validate(form);
     setErrors(v);
@@ -102,9 +99,12 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
         priority: form.priority,
       };
       const res = await axiosInstance.post('/api/complaints', payload, { headers });
-      setApiSuccess('Complaint submitted successfully!');
-      setForm({ name: '', email: '', subject: '', description: '', category: '', priority: 'Medium' });
+
+
       onSubmitted?.(res.data);
+
+
+      setForm({ name: '', email: '', subject: '', description: '', category: '', priority: 'Medium' });
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to submit complaint';
       setApiError(msg);
@@ -215,7 +215,6 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
       {invalid('priority') && <div className="text-red-600 text-sm mb-3 -mt-5 mb-6">{errors.priority}</div>}
 
       {apiError && <div className="text-red-600 mb-2">{apiError}</div>}
-      {apiSuccess && <div className="text-green-600 mb-2">{apiSuccess}</div>}
 
       <div className="flex gap-2">
         <button
