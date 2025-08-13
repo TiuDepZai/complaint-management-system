@@ -63,5 +63,56 @@ const list = async (req, res) => {
     return res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+const update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { description, category } = req.body;
 
-module.exports = { create, list };
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid complaint id' });
+    }
+
+    // Fetch to check ownership/exists
+    const existing = await Complaint.findById(id).select('createdBy');
+    if (!existing) return res.status(404).json({ message: 'Not found' });
+
+    // Only owner or admin can update
+    if (req.user.role !== 'admin' && String(existing.createdBy) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const updates = {};
+
+    if (description !== undefined) {
+      const trimmed = String(description).trim();
+      if (!trimmed) return res.status(400).json({ message: 'Description is required' });
+      updates.description = trimmed;
+    }
+
+    if (category !== undefined) {
+      if (!mongoose.Types.ObjectId.isValid(category)) {
+        return res.status(400).json({ message: 'Invalid category id' });
+      }
+      const cat = await Category.findOne({ _id: category, status: 'Active' }).select('_id').lean();
+      if (!cat) return res.status(400).json({ message: 'Category not found or inactive' });
+      updates.category = category;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update (description/category)' });
+    }
+
+    const updated = await Complaint.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+      context: 'query',
+    })
+      .populate('category', 'name status')
+      .populate('createdBy', 'name email');
+
+    return res.json(updated);
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+module.exports = { create, list, update };
