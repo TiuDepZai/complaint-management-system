@@ -6,4 +6,5 @@ const { protect } = require('../middleware/authMiddleware');
 // Only authenticated users can submit a complaint
 router.post('/', protect, ComplaintController.create);
 router.get('/',  protect, ComplaintController.list);
+router.put('/:id', protect, ComplaintController.update);
 module.exports = router;
