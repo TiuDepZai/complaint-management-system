@@ -7,4 +7,5 @@ const { protect } = require('../middleware/authMiddleware');
 router.post('/', protect, ComplaintController.create);
 router.get('/',  protect, ComplaintController.list);
 router.put('/:id', protect, ComplaintController.update);
+router.delete('/:id', protect, ComplaintController.remove);
 module.exports = router;
