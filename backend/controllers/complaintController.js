@@ -24,7 +24,8 @@ const create = async (req, res) => {
       subject: subject.trim(),
       description: description.trim(),
       category,
-      priority
+      priority,
+      createdBy: req.user.id, 
     });
 
     return res.status(201).json(doc);

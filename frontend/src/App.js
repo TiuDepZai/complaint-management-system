@@ -4,6 +4,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Categories from './pages/Categories';
+import Home from './pages/Home';
+import Complaints from './pages/Complaints';
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/categories" element={<Categories/>} />
+        <Route path="/" element={<Home />} />
+        <Route path="/complaints" element={<Complaints />} />
       </Routes>
     </Router>
   );

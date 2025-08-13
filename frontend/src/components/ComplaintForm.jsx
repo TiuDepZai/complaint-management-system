@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import axiosInstance from '../axiosConfig';
+import { useAuth } from '../context/AuthContext';
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
-export default function ComplaintForm({ onClose, categories = [] }) {
+export default function ComplaintForm({ onClose, onSubmitted }) {
+  const { user } = useAuth();
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -15,6 +19,12 @@ export default function ComplaintForm({ onClose, categories = [] }) {
 
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  // categories
+  const [categories, setCategories] = useState([]);
+  const [catLoading, setCatLoading] = useState(true);
+  const [catError, setCatError] = useState('');
 
   const validate = (values) => {
     const e = {};
@@ -44,25 +54,65 @@ export default function ComplaintForm({ onClose, categories = [] }) {
     setErrors((prev) => ({ ...prev, [field]: v[field] }));
   };
 
-  const handleSubmit = (e) => {
+  // Load Active categories (auth required)
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        setCatLoading(true);
+        setCatError('');
+        const headers = user?.token ? { Authorization: `Bearer ${user.token}` } : {};
+        const res = await axiosInstance.get('/api/categories/active', { headers });
+        if (!ignore) setCategories(res.data || []);
+      } catch (e) {
+        if (!ignore) setCatError('Failed to load categories');
+      } finally {
+        if (!ignore) setCatLoading(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [user?.token]);
+
+  // Submit to backend
+  const [apiError, setApiError] = useState('');
+  const [apiSuccess, setApiSuccess] = useState('');
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setApiError('');
+    setApiSuccess('');
+
     const v = validate(form);
     setErrors(v);
     setTouched({
-      name: true,
-      email: true,
-      subject: true,
-      description: true,
-      category: true,
-      priority: true,
+      name: true, email: true, subject: true,
+      description: true, category: true, priority: true,
     });
-    if (Object.keys(v).length > 0) return; // invalid → stop here
+    if (Object.keys(v).length > 0) return;
 
-    // TODO: hook up API in next sub-task
-    // You could temporarily console.log(form) if you want to see the payload.
+    try {
+      setSubmitting(true);
+      const headers = user?.token ? { Authorization: `Bearer ${user.token}` } : {};
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        subject: form.subject.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        priority: form.priority,
+      };
+      const res = await axiosInstance.post('/api/complaints', payload, { headers });
+      setApiSuccess('Complaint submitted successfully!');
+      setForm({ name: '', email: '', subject: '', description: '', category: '', priority: 'Medium' });
+      onSubmitted?.(res.data);
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to submit complaint';
+      setApiError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // helper to style invalid fields
   const invalid = (field) => touched[field] && errors[field];
 
   return (
@@ -136,9 +186,10 @@ export default function ComplaintForm({ onClose, categories = [] }) {
         onBlur={handleBlur('category')}
         aria-invalid={!!invalid('category')}
         className={`w-full mb-1 p-2 border rounded ${invalid('category') ? 'border-red-500' : ''}`}
+        disabled={catLoading}
       >
         <option value="">
-          {categories.length ? 'Select Category' : 'Loading categories…'}
+          {catLoading ? 'Loading categories…' : 'Select Category'}
         </option>
         {categories.map((c) => (
           <option key={c._id} value={c._id}>
@@ -146,6 +197,7 @@ export default function ComplaintForm({ onClose, categories = [] }) {
           </option>
         ))}
       </select>
+      {catError && <div className="text-red-600 text-sm mb-2">{catError}</div>}
       {invalid('category') && <div className="text-red-600 text-sm mb-3">{errors.category}</div>}
 
       {/* Priority */}
@@ -162,9 +214,16 @@ export default function ComplaintForm({ onClose, categories = [] }) {
       </select>
       {invalid('priority') && <div className="text-red-600 text-sm mb-3 -mt-5 mb-6">{errors.priority}</div>}
 
+      {apiError && <div className="text-red-600 mb-2">{apiError}</div>}
+      {apiSuccess && <div className="text-green-600 mb-2">{apiSuccess}</div>}
+
       <div className="flex gap-2">
-        <button type="submit" className="flex-1 bg-blue-600 text-white p-2 rounded">
-          Submit
+        <button
+          type="submit"
+          disabled={submitting}
+          className={`flex-1 p-2 rounded text-white ${submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+        >
+          {submitting ? 'Submitting…' : 'Submit'}
         </button>
         <button type="button" onClick={onClose} className="flex-1 bg-gray-200 p-2 rounded">
           Cancel
