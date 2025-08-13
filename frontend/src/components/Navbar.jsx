@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
 
   const handleLogout = () => {
     logout();
@@ -11,12 +12,14 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-blue-600 text-white p-4 flex justify-between items-center">
+    <nav className="bg-gray-400 text-white p-4 flex justify-between items-center">
       <Link to="/" className="text-2xl font-bold">CMS</Link>
       <div>
         {user ? (
           <>
-            <Link to="/categories" className="mr-4">CRUD</Link>
+            {isAdmin && (
+              <Link to="/categories" className="mr-4">Categories</Link>
+            )}
             <Link to="/profile" className="mr-4">Profile</Link>
             <button
               onClick={handleLogout}

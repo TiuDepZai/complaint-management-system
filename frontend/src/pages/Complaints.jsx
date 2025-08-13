@@ -1,4 +1,3 @@
-// src/pages/Complaints.jsx
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +13,9 @@ export default function Complaints() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  const isAdmin = user?.role === 'admin';
+  const showUserCol = isAdmin && search.get('all') === '1'; // show "User" column only for admin all=1
 
   // Small priority badge
   const PriorityBadge = ({ value }) => {
@@ -45,7 +47,7 @@ export default function Complaints() {
     }
   };
 
-  // Fetch my complaints
+  // Fetch complaints (supports admin ?all=1)
   const fetchComplaints = async () => {
     if (!user?.token) {
       setComplaints([]);
@@ -55,7 +57,11 @@ export default function Complaints() {
     try {
       setLoading(true);
       setLoadError('');
-      const res = await axiosInstance.get('/api/complaints', {
+
+      const wantAll = search.get('all') === '1';
+      const qs = isAdmin && wantAll ? '?all=1' : '';
+
+      const res = await axiosInstance.get(`/api/complaints${qs}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       setComplaints(res.data || []);
@@ -66,11 +72,11 @@ export default function Complaints() {
     }
   };
 
-  // Load (or reload if token changes)
+  // Load (or reload if token OR querystring changes)
   useEffect(() => {
     fetchComplaints();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.token]);
+  }, [user?.token, search.toString()]);
 
   // After submit: close modal, show success with reference, then refetch list
   const handleSubmitted = async (created) => {
@@ -80,11 +86,13 @@ export default function Complaints() {
     await fetchComplaints();
   };
 
+  const headerCols = showUserCol ? 'grid-cols-5' : 'grid-cols-4';
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Complaints</h1>
-        {user?.token && (
+        {user?.token && user?.role !== 'admin' && (
           <button
             onClick={() => {
               setOpen(true);
@@ -120,7 +128,8 @@ export default function Complaints() {
       {/* List table (only when logged in) */}
       {user?.token && (
         <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-4 font-semibold px-4 py-3 border-b bg-gray-50">
+          <div className={`grid ${headerCols} font-semibold px-4 py-3 border-b bg-gray-50`}>
+            {showUserCol && <div>User</div>}
             <div>Reference</div>
             <div>Category</div>
             <div>Priority</div>
@@ -133,7 +142,15 @@ export default function Complaints() {
           {!loading &&
             !loadError &&
             complaints.map((c) => (
-              <div key={c._id} className="grid grid-cols-4 px-4 py-3 border-b hover:bg-gray-50 transition-colors">
+              <div
+                key={c._id}
+                className={`grid ${headerCols} px-4 py-3 border-b hover:bg-gray-50 transition-colors`}
+              >
+                {showUserCol && (
+                  <div title={c.createdBy?.email}>
+                    {c.createdBy?.name || c.createdBy?.email || '-'}
+                  </div>
+                )}
                 <div className="font-mono">{c.reference}</div>
                 <div>{c.category?.name || '-'}</div>
                 <div>
