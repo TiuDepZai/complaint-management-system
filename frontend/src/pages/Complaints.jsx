@@ -16,11 +16,11 @@ export default function Complaints() {
   const [loadError, setLoadError] = useState('');
 
   const [editingComplaint, setEditingComplaint] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const isAdmin = user?.role === 'admin';
-  const showUserCol = isAdmin && search.get('all') === '1'; // show "User" only for admin all=1
+  const showUserCol = isAdmin && search.get('all') === '1';
 
-  // Priority badge
   const PriorityBadge = ({ value }) => {
     const cls =
       value === 'Urgent'
@@ -37,7 +37,6 @@ export default function Complaints() {
     );
   };
 
-  // Open modal if ?new=1
   useEffect(() => {
     if (search.get('new') === '1' && user?.token) setOpen(true);
   }, [search, user?.token]);
@@ -50,7 +49,6 @@ export default function Complaints() {
     }
   };
 
-  // Fetch complaints (supports admin ?all=1)
   const fetchComplaints = async () => {
     if (!user?.token) {
       setComplaints([]);
@@ -80,7 +78,6 @@ export default function Complaints() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.token, search.toString()]);
 
-  // After submit: close modal, show success with reference, then refetch
   const handleSubmitted = async (created) => {
     closeForm();
     setPageSuccess(`Complaint submitted successfully! Reference: ${created.reference}`);
@@ -88,7 +85,6 @@ export default function Complaints() {
     await fetchComplaints();
   };
 
-  // After update: close modal, show success, update list
   const handleUpdated = async (updated) => {
     setEditingComplaint(null);
     setComplaints((prev) => prev.map((c) => (c._id === updated._id ? updated : c)));
@@ -96,7 +92,6 @@ export default function Complaints() {
     setTimeout(() => setPageSuccess(''), 3000);
   };
 
-  // Show edit icon for owner or admin (backend still enforces)
   const canEdit = (c) => {
     if (!user) return false;
     if (user.role === 'admin') return true;
@@ -104,8 +99,27 @@ export default function Complaints() {
     const ownerId = c.createdBy?._id || c.createdBy;
     return String(uid) === String(ownerId);
   };
+  const canDelete = canEdit; // same rule: owner or admin
 
-  // Columns: +1 for actions; +1 for user col (admin all=1)
+  const handleDelete = async (complaint) => {
+    const ok = window.confirm(`Are you sure you want to delete complaint "${complaint.reference}"?`);
+    if (!ok) return;
+
+    try {
+      setDeletingId(complaint._id);
+      await axiosInstance.delete(`/api/complaints/${complaint._id}`, {
+        headers: { Authorization: `Bearer ${user?.token}` },
+      });
+      setComplaints((prev) => prev.filter((c) => c._id !== complaint._id));
+      setPageSuccess('Complaint deleted successfully!');
+      setTimeout(() => setPageSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to delete complaint', err?.response?.data || err?.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const headerCols = showUserCol ? 'grid-cols-6' : 'grid-cols-5';
 
   return (
@@ -145,7 +159,6 @@ export default function Complaints() {
 
       {!user?.token && <div className="text-gray-700 mb-4">Please log in to register a complaint.</div>}
 
-      {/* List table */}
       {user?.token && (
         <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
           <div className={`grid ${headerCols} font-semibold px-4 py-3 border-b bg-gray-50`}>
@@ -191,7 +204,6 @@ export default function Complaints() {
                       aria-label={`Edit ${c.reference}`}
                       title="Edit"
                     >
-                      {/* Pencil icon */}
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-5 w-5 text-gray-700"
@@ -199,6 +211,37 @@ export default function Complaints() {
                         fill="currentColor"
                       >
                         <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 .75a1 1 0 01-1.213-1.213l.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
+                      </svg>
+                    </button>
+                  )}
+
+                  {canDelete(c) && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(c)}
+                      disabled={deletingId === c._id}
+                      className={`p-2 rounded focus:outline-none focus:ring focus:ring-red-200 ${
+                        deletingId === c._id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50'
+                      }`}
+                      aria-label={`Delete ${c.reference}`}
+                      title="Delete"
+                    >
+                      {/* Red trash icon with thicker stroke */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-red-600"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                        <path d="M9 6V5a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1" />
                       </svg>
                     </button>
                   )}
@@ -212,7 +255,6 @@ export default function Complaints() {
         </div>
       )}
 
-      {/* Add Complaint Modal */}
       {open && user?.token && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="w-full max-w-lg">
@@ -221,7 +263,6 @@ export default function Complaints() {
         </div>
       )}
 
-      {/* Edit Complaint Modal */}
       {editingComplaint && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="w-full max-w-lg">
