@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ComplaintForm from '../components/ComplaintForm';
+import EditComplaintModal from '../components/EditComplaintModal';
 import axiosInstance from '../axiosConfig';
 
 export default function Complaints() {
@@ -14,10 +15,12 @@ export default function Complaints() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const isAdmin = user?.role === 'admin';
-  const showUserCol = isAdmin && search.get('all') === '1'; // show "User" column only for admin all=1
+  const [editingComplaint, setEditingComplaint] = useState(null);
 
-  // Small priority badge
+  const isAdmin = user?.role === 'admin';
+  const showUserCol = isAdmin && search.get('all') === '1'; // show "User" only for admin all=1
+
+  // Priority badge
   const PriorityBadge = ({ value }) => {
     const cls =
       value === 'Urgent'
@@ -72,13 +75,12 @@ export default function Complaints() {
     }
   };
 
-  // Load (or reload if token OR querystring changes)
   useEffect(() => {
     fetchComplaints();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.token, search.toString()]);
 
-  // After submit: close modal, show success with reference, then refetch list
+  // After submit: close modal, show success with reference, then refetch
   const handleSubmitted = async (created) => {
     closeForm();
     setPageSuccess(`Complaint submitted successfully! Reference: ${created.reference}`);
@@ -86,7 +88,25 @@ export default function Complaints() {
     await fetchComplaints();
   };
 
-  const headerCols = showUserCol ? 'grid-cols-5' : 'grid-cols-4';
+  // After update: close modal, show success, update list
+  const handleUpdated = async (updated) => {
+    setEditingComplaint(null);
+    setComplaints((prev) => prev.map((c) => (c._id === updated._id ? updated : c)));
+    setPageSuccess('Complaint updated successfully!');
+    setTimeout(() => setPageSuccess(''), 3000);
+  };
+
+  // Show edit icon for owner or admin (backend still enforces)
+  const canEdit = (c) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    const uid = user.id || user._id;
+    const ownerId = c.createdBy?._id || c.createdBy;
+    return String(uid) === String(ownerId);
+  };
+
+  // Columns: +1 for actions; +1 for user col (admin all=1)
+  const headerCols = showUserCol ? 'grid-cols-6' : 'grid-cols-5';
 
   return (
     <div className="p-6">
@@ -125,7 +145,7 @@ export default function Complaints() {
 
       {!user?.token && <div className="text-gray-700 mb-4">Please log in to register a complaint.</div>}
 
-      {/* List table (only when logged in) */}
+      {/* List table */}
       {user?.token && (
         <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
           <div className={`grid ${headerCols} font-semibold px-4 py-3 border-b bg-gray-50`}>
@@ -134,6 +154,7 @@ export default function Complaints() {
             <div>Category</div>
             <div>Priority</div>
             <div>Description</div>
+            <div>Actions</div>
           </div>
 
           {loading && <div className="px-4 py-3 text-gray-600">Loading…</div>}
@@ -159,6 +180,29 @@ export default function Complaints() {
                 <div className="truncate" title={c.description}>
                   {c.description}
                 </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  {canEdit(c) && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingComplaint(c)}
+                      className="p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring focus:ring-blue-200"
+                      aria-label={`Edit ${c.reference}`}
+                      title="Edit"
+                    >
+                      {/* Pencil icon */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-gray-700"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 .75a1 1 0 01-1.213-1.213l.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -168,10 +212,24 @@ export default function Complaints() {
         </div>
       )}
 
+      {/* Add Complaint Modal */}
       {open && user?.token && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="w-full max-w-lg">
             <ComplaintForm onClose={closeForm} onSubmitted={handleSubmitted} />
+          </div>
+        </div>
+      )}
+
+      {/* Edit Complaint Modal */}
+      {editingComplaint && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="w-full max-w-lg">
+            <EditComplaintModal
+              complaint={editingComplaint}
+              onClose={() => setEditingComplaint(null)}
+              onUpdated={handleUpdated}
+            />
           </div>
         </div>
       )}
