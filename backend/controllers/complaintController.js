@@ -54,6 +54,7 @@ const list = async (req, res) => {
 
     const complaints = await Complaint.find(match)
       .populate('category', 'name status')
+      .populate('createdBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
