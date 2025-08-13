@@ -11,7 +11,7 @@ export default function EditComplaintModal({ complaint, onClose, onUpdated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Load Active categories
+  // Load Active Categories 
   const [categories, setCategories] = useState([]);
   const [catLoading, setCatLoading] = useState(true);
   const [catError, setCatError] = useState('');
