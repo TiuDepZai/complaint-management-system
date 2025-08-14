@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Home() {
@@ -115,9 +115,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-6 text-sm text-gray-600 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div>© {year} CMS — All rights reserved.</div>
           <div className="flex items-center gap-4">
-            <a href="#" className="hover:text-gray-800">About</a>
-            <a href="#" className="hover:text-gray-800">Contact</a>
-            <a href="#" className="hover:text-gray-800">Privacy</a>
+            <Link to="/about" className="hover:text-gray-800">About</Link>
+            <Link to="/contact" className="hover:text-gray-800">Contact</Link>
+            <Link to="/privacy" className="hover:text-gray-800">Privacy</Link>
+
           </div>
         </div>
       </footer>
