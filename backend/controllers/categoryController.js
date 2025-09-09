@@ -1,123 +1,90 @@
+const CategoryEntity = require('../entities/Category');
+const CategoryModel = require('../models/Category');
 const mongoose = require('mongoose');
-const Category = require('../models/Category');
 const Complaint = require('../models/Complaint');
+
+// List all categories
 const list = async (req, res) => {
-  try {
-    const categories = await Category.find().sort({ createdAt: -1 }).lean();
-    return res.status(200).json(categories);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
-  }
+    try {
+        const categories = await CategoryModel.find().sort({ createdAt: -1 }).lean();
+        res.status(200).json(categories);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
 };
 
+// List active categories only
 const listActive = async (req, res) => {
-  try {
-    const categories = await Category.find({ status: 'Active' })
-      .select('_id name')          // only what the dropdown needs
-      .sort({ name: 1 })
-      .lean();
-    return res.json(categories);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
-  }
+    try {
+        const categories = await CategoryModel.find({ status: 'Active' })
+            .select('_id name')
+            .sort({ name: 1 })
+            .lean();
+        res.json(categories);
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
 };
 
+// Create new category
 const create = async (req, res) => {
-  try {
-    const { name, description, status } = req.body;
+    try {
+        const { name, description, status } = req.body;
 
-    if (!name || !name.trim()) {
-      return res.status(400).json({ message: 'Name is required' });
+        const categoryEntity = new CategoryEntity(name, description, status);
+
+        // Case-insensitive uniqueness check
+        const exists = await CategoryModel.findOne({ name: categoryEntity.name })
+            .collation({ locale: 'en', strength: 2 });
+        if (exists) return res.status(409).json({ message: 'Category already exists' });
+
+        const doc = await CategoryModel.create(categoryEntity.toObject());
+        res.status(201).json(doc);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
-
-    // enforce case-insensitive uniqueness
-    const exists = await Category.findOne({ name })
-      .collation({ locale: 'en', strength: 2 });
-    if (exists) {
-      return res.status(409).json({ message: 'Category already exists' });
-    }
-
-    const validStatus = ['Active', 'Inactive'];
-    const finalStatus = validStatus.includes(status) ? status : 'Active';
-
-    const doc = await Category.create({
-      name: name.trim(),
-      description,
-      status: finalStatus
-    });
-
-    return res.status(201).json(doc);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
-  }
 };
 
+// Update category
 const update = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, status } = req.body;
+    try {
+        const { id } = req.params;
+        const { name, description, status } = req.body;
 
-    const updates = {};
+        const category = await CategoryModel.findById(id);
+        if (!category) return res.status(404).json({ message: 'Category not found' });
 
-    // name must be non-empty and unique (case-insensitive)
-    if (name !== undefined) {
-      const trimmed = name.trim();
-      if (!trimmed) return res.status(400).json({ message: 'Name is required' });
+        const categoryEntity = new CategoryEntity(category.name, category.description, category.status);
+        categoryEntity.update({ name, description, status });
 
-      const dupe = await Category.findOne({ name: trimmed })
-        .collation({ locale: 'en', strength: 2 });
-      if (dupe && String(dupe._id) !== String(id)) {
-        return res.status(409).json({ message: 'Category name already exists' });
-      }
-      updates.name = trimmed;
+        Object.assign(category, categoryEntity.toObject());
+        await category.save();
+
+        res.json(category);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
-
-    // status: optional; if provided, must be valid
-    if (status !== undefined) {
-      if (!['Active', 'Inactive'].includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
-      }
-      updates.status = status;
-    }
-
-    // description: optional (allow empty string)
-    if (description !== undefined) {
-      updates.description = description;
-    }
-
-    const updated = await Category.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-      context: 'query',
-    });
-
-    if (!updated) return res.status(404).json({ message: 'Not found' });
-    return res.json(updated);
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
-  }
 };
 
+// Delete category
 const remove = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid category id' });
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid category id' });
+        }
+
+        const inUse = await Complaint.exists({ category: id });
+        if (inUse) return res.status(409).json({ message: 'Category is in use by one or more complaints' });
+
+        const deleted = await CategoryModel.findByIdAndDelete(id);
+        if (!deleted) return res.status(404).json({ message: 'Category not found' });
+
+        res.status(204).send();
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
-
-    // block delete if any complaint uses this category
-    const inUse = await Complaint.exists({ category: id });
-    if (inUse) {
-      return res.status(409).json({ message: 'Category is in use by one or more complaints' });
-    }
-
-    const deleted = await Category.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: 'Not found' });
-
-    return res.status(204).send(); // no content
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error', error: err.message });
-  }
 };
 
 module.exports = { list, listActive, create, update, remove };

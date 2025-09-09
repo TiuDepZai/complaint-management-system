@@ -3,14 +3,11 @@ import axiosInstance from '../axiosConfig';
 import { useAuth } from '../context/AuthContext';
 
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
-const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
 export default function ComplaintForm({ onClose, onSubmitted }) {
   const { user } = useAuth();
 
   const [form, setForm] = useState({
-    name: '',
-    email: '',
     subject: '',
     description: '',
     category: '',
@@ -30,9 +27,6 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
 
   const validate = (values) => {
     const e = {};
-    if (!values.name.trim()) e.name = 'Name is required';
-    if (!values.email.trim()) e.email = 'Email is required';
-    else if (!EMAIL_RE.test(values.email.trim())) e.email = 'Enter a valid email';
     if (!values.subject.trim()) e.subject = 'Subject is required';
     else if (values.subject.trim().length > 200) e.subject = 'Subject must be 200 characters or fewer';
     if (!values.description.trim()) e.description = 'Description is required';
@@ -82,17 +76,14 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
     const v = validate(form);
     setErrors(v);
     setTouched({
-      name: true, email: true, subject: true,
-      description: true, category: true, priority: true,
+      subject: true, description: true, category: true, priority: true,
     });
     if (Object.keys(v).length > 0) return;
-
+    
     try {
       setSubmitting(true);
       const headers = user?.token ? { Authorization: `Bearer ${user.token}` } : {};
       const payload = {
-        name: form.name.trim(),
-        email: form.email.trim(),
         subject: form.subject.trim(),
         description: form.description.trim(),
         category: form.category,
@@ -104,7 +95,7 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
       onSubmitted?.(res.data);
 
 
-      setForm({ name: '', email: '', subject: '', description: '', category: '', priority: 'Medium' });
+      setForm({  subject: '', description: '', category: '', priority: 'Medium' });
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to submit complaint';
       setApiError(msg);
@@ -130,30 +121,6 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
       </button>
 
       <h1 className="text-2xl font-bold mb-4">Submit a Complaint</h1>
-
-      {/* Name */}
-      <input
-        type="text"
-        placeholder="Name"
-        value={form.name}
-        onChange={handleChange('name')}
-        onBlur={handleBlur('name')}
-        aria-invalid={!!invalid('name')}
-        className={`w-full mb-1 p-2 border rounded ${invalid('name') ? 'border-red-500' : ''}`}
-      />
-      {invalid('name') && <div className="text-red-600 text-sm mb-3">{errors.name}</div>}
-
-      {/* Email */}
-      <input
-        type="email"
-        placeholder="Email"
-        value={form.email}
-        onChange={handleChange('email')}
-        onBlur={handleBlur('email')}
-        aria-invalid={!!invalid('email')}
-        className={`w-full mb-1 p-2 border rounded ${invalid('email') ? 'border-red-500' : ''}`}
-      />
-      {invalid('email') && <div className="text-red-600 text-sm mb-3">{errors.email}</div>}
 
       {/* Subject */}
       <input
