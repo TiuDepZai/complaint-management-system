@@ -48,4 +48,29 @@ const remove = async (req, res) => {
   }
 };
 
-module.exports = { create, list, update, remove };
+const assignComplaint = async (req, res) => {
+  try {
+    const { complaintId } = req.params;
+    const { staffId } = req.body; 
+
+    if (!mongoose.Types.ObjectId.isValid(complaintId)) {
+      return res.status(400).json({ message: 'Invalid complaintId' });
+    }
+
+    if (staffId && !mongoose.Types.ObjectId.isValid(staffId)) {
+      return res.status(400).json({ message: 'Invalid staffId' });
+    }
+
+    if (!['admin', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const updatedComplaint = await ComplaintEntity.assignStaff(complaintId, staffId || null);
+    res.status(200).json(updatedComplaint);
+
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+module.exports = { create, list, update, remove, assignComplaint };

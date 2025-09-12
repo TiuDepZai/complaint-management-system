@@ -8,6 +8,8 @@ dotenv.config();
 
 const categoryRoutes = require('./routes/categoryRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+
 const app = express();
 
 app.use(cors());
@@ -16,6 +18,7 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/categories', categoryRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/ping', (req, res) => {
   res.send('pong');

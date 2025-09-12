@@ -11,9 +11,9 @@ class ComplaintEntity {
     this.category = data.category;
     this.priority = data.priority || 'Medium';
     this.createdBy = data.createdBy;
-    this.reference = data.reference; // optional if auto-generated
+    this.assignedTo = data.assignedTo || null;
+    this.reference = data.reference; 
   }
-
   /**
    * Convert to plain object (for Mongoose create/update)
    */
@@ -25,7 +25,8 @@ class ComplaintEntity {
       description: this.description,
       category: this.category,
       priority: this.priority,
-      createdBy: this.createdBy,
+      createdBy: this.createdBy,    
+      assignedTo: this.assignedTo,
       reference: this.reference
     };
   }
@@ -61,7 +62,7 @@ class ComplaintEntity {
       throw new Error('Not authorized to update this complaint');
     }
 
-    const updatableFields = ['subject', 'description', 'category', 'priority', 'status'];
+    const updatableFields = ['subject', 'description', 'category', 'priority', 'status', 'assignedTo'];
     for (const field of updatableFields) {
       if (data[field] !== undefined) complaint[field] = data[field];
     }
@@ -70,6 +71,7 @@ class ComplaintEntity {
       const cat = await CategoryModel.findById({_id: data.category, status: 'Active' }).lean();
       if (!cat) throw new Error('Invalid or inactive category');
     }
+    
 
     return complain.save()
     .then(doc => doc.populate('category', 'name status')
@@ -88,6 +90,26 @@ class ComplaintEntity {
 
     await complaint.deleteOne();
     return true;
+  }
+
+  static async assignStaff(complaintId, staffId) {
+    let staff = null;
+
+    if (staffId) {
+      staff = await UserModel.findById(staffId);
+      if (!staff || staff.role !== 'staff') {
+        throw new Error('Invalid staff user');
+      }
+    }
+    const updated = await ComplaintModel.findByIdAndUpdate(
+      complaintId,
+      { assignedTo: staff ? staffId : null },
+      { new: true }
+    ).populate('assignedTo', 'name email role');
+
+    if (!updated) throw new Error('Complaint not found');
+    return updated;
+  
   }
 }
 
