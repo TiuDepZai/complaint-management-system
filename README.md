@@ -61,16 +61,13 @@ MONGO_URI=<your mongodb connection string>
 JWT_SECRET=<your jwt secret>
 PORT=5000
 ```
-
-If your frontend needs a custom API base URL, set it in your axios instance or use an env like `VITE_API_BASE_URL` / `REACT_APP_API_BASE_URL` and reference it in axios config.
-
 ---
 
 ## Project Setup (Local)
 
 1) **Clone & install**
 ```bash
-git clone <your-repo-url>
+git clone <https://github.com/TiuDepZai/complaint-management-system.git>
 cd complaint-management-system
 ```
 
