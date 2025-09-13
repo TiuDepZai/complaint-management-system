@@ -2,7 +2,6 @@ const ComplaintEntity = require('../entities/Complaint');
 
 const create = async (req, res) => {
   try {
-    console.log('Creating complaint with data:', req.body, 'by user:', req.user);
 
     const entity = new ComplaintEntity({ 
       ...req.body, 

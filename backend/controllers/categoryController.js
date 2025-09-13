@@ -13,7 +13,6 @@
 
     // List active categories only
     const listActive = async (req, res) => {
-        console.log(req);
         try {
             const categories = await CategoryEntity.listActive();
             res.json(categories);
