@@ -6,11 +6,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-<<<<<<< HEAD
-    role: { type: String, enum: ['admin', 'customer'], default: 'customer', required: true },
-=======
     role: { type: String, enum: ['admin', 'customer','staff'], default: 'customer', required: true },
->>>>>>> origin/main
     university: { type: String },
     address: { type: String },
 });

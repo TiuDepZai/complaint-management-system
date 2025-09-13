@@ -6,11 +6,7 @@ const { protect } = require('../middleware/authMiddleware');
 
 router.post('/', protect, requireRole('admin'), CategoryController.create);
 router.get('/active', protect, CategoryController.listActive);
-<<<<<<< HEAD
-router.get('/', protect, requireRole('admin'), CategoryController.list);
-=======
 router.get('/', protect, CategoryController.list);
->>>>>>> origin/main
 router.put('/:id', protect, requireRole('admin'), CategoryController.update);
 router.delete('/:id', protect, requireRole('admin'), CategoryController.remove);
 module.exports = router;

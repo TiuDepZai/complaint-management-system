@@ -1,20 +1,3 @@
-<<<<<<< HEAD
-// entities/User.js
-class User {
-    constructor(name, email, university = '', address = '', role = 'customer') {
-        this.name = name;
-        this.email = email;
-        this.university = university;
-        this.address = address;
-        this.role = role;
-    }
-
-    updateProfile({ name, email, university, address }) {
-        this.name = name || this.name;
-        this.email = email || this.email;
-        this.university = university || this.university;
-        this.address = address || this.address;
-=======
 const UserModel = require('../models/User');
 
 class User {
@@ -35,7 +18,6 @@ class User {
         if (email !== undefined) this.email = email.trim().toLowerCase();
         if (university !== undefined) this.university = university;
         if (address !== undefined) this.address = address;
->>>>>>> origin/main
     }
 
     toObject() {
@@ -44,14 +26,6 @@ class User {
             email: this.email,
             university: this.university,
             address: this.address,
-<<<<<<< HEAD
-            role: this.role
-        };
-    }
-}
-
-module.exports = User;
-=======
             role: this.role,
             password: this.password
         };
@@ -78,4 +52,3 @@ module.exports = User;
 }
 
 module.exports = User;
->>>>>>> origin/main

@@ -1,32 +1,11 @@
-<<<<<<< HEAD
-// controllers/userController.js
-const UserModel = require('../models/User');
-const UserEntity = require('../entities/User');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-=======
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const UserEntity = require('../entities/User');
->>>>>>> origin/main
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-<<<<<<< HEAD
-const registerUser = async (req, res) => {
-    const { name, email, password } = req.body;
-    try {
-        const userExists = await UserModel.findOne({ email });
-        if (userExists) return res.status(400).json({ message: 'User already exists' });
-
-        const doc = await UserModel.create({ name, email, password: password });
-
-        res.status(201).json({
-            id: doc.id,
-            ...doc.toObject(),
-=======
 // Register new user
 const registerUser = async (req, res) => {
     try {
@@ -44,7 +23,6 @@ const registerUser = async (req, res) => {
         res.status(201).json({
             id: doc.id,
             ...userData,
->>>>>>> origin/main
             token: generateToken(doc.id)
         });
     } catch (error) {
@@ -52,15 +30,6 @@ const registerUser = async (req, res) => {
     }
 };
 
-<<<<<<< HEAD
-const loginUser = async (req, res) => {
-    const { email, password } = req.body;
-    try {
-        const user = await UserModel.findOne({ email: email.trim().toLowerCase() });
-        if (user && (await bcrypt.compare(password, user.password))) {
-            const userData = user.toObject();
-            delete userData.password;
-=======
 // Login user
 const loginUser = async (req, res) => {
     try {
@@ -70,7 +39,6 @@ const loginUser = async (req, res) => {
             const userData = user.toObject();
             delete userData.password;
 
->>>>>>> origin/main
             res.json({
                 id: user.id,
                 ...userData,
@@ -84,15 +52,6 @@ const loginUser = async (req, res) => {
     }
 };
 
-<<<<<<< HEAD
-
-const getProfile = async (req, res) => {
-    try {
-        const user = await UserModel.findById(req.user.id);
-        if (!user) return res.status(404).json({ message: 'User not found' });
-
-        res.status(200).json(user.toObject());
-=======
 // Get current profile
 const getProfile = async (req, res) => {
     try {
@@ -103,40 +62,11 @@ const getProfile = async (req, res) => {
         delete userData.password;
 
         res.status(200).json(userData);
->>>>>>> origin/main
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
-<<<<<<< HEAD
-const updateUserProfile = async (req, res) => {
-    try {
-        const userDoc = await UserModel.findById(req.user.id);
-        if (!userDoc) return res.status(404).json({ message: 'User not found' });
-
-        // Load into entity
-        const userEntity = new UserEntity(
-            userDoc.name,
-            userDoc.email,
-            userDoc.university,
-            userDoc.address,
-            userDoc.role
-        );
-
-        // Apply updates via entity method
-        userEntity.updateProfile(req.body);
-
-        // Apply entity changes back to DB doc
-        Object.assign(userDoc, userEntity.toObject());
-
-        await userDoc.save();
-
-        res.json({
-            id: userDoc.id,
-            ...userDoc.toObject(),
-            token: generateToken(userDoc.id)
-=======
 // Update profile
 const updateUserProfile = async (req, res) => {
     try {
@@ -156,15 +86,10 @@ const updateUserProfile = async (req, res) => {
             id: userDoc.id,
             ...userData,
             token: generateToken(userDoc.id) // optional: only if you want a refreshed token
->>>>>>> origin/main
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-<<<<<<< HEAD
 module.exports = { registerUser, loginUser, updateUserProfile, getProfile };
-=======
-module.exports = { registerUser, loginUser, updateUserProfile, getProfile };
->>>>>>> origin/main

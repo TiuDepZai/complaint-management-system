@@ -1,10 +1,7 @@
-<<<<<<< HEAD
-=======
 const ComplaintModel = require('../models/Complaint');
 const CategoryModel = require('../models/Category');
 const mongoose = require('mongoose');
 
->>>>>>> origin/main
 class ComplaintEntity {
   constructor(data) {
     this.name = data.name;
@@ -14,15 +11,9 @@ class ComplaintEntity {
     this.category = data.category;
     this.priority = data.priority || 'Medium';
     this.createdBy = data.createdBy;
-<<<<<<< HEAD
-    this.reference = data.reference; // optional if auto-generated
-  }
-
-=======
     this.assignedTo = data.assignedTo || null;
     this.reference = data.reference; 
   }
->>>>>>> origin/main
   /**
    * Convert to plain object (for Mongoose create/update)
    */
@@ -34,29 +25,12 @@ class ComplaintEntity {
       description: this.description,
       category: this.category,
       priority: this.priority,
-<<<<<<< HEAD
-      createdBy: this.createdBy,
-=======
       createdBy: this.createdBy,    
       assignedTo: this.assignedTo,
->>>>>>> origin/main
       reference: this.reference
     };
   }
 
-<<<<<<< HEAD
-  /**
-   * Apply updates and return the updated object
-   */
-  update(data) {
-    const updatableFields = ['name', 'email', 'subject', 'description', 'category', 'priority'];
-    for (const field of updatableFields) {
-      if (data[field] !== undefined) {
-        this[field] = data[field];
-      }
-    }
-    return this.toObject();
-=======
   // DB Methods
 
   static async create(entity) {
@@ -136,7 +110,6 @@ class ComplaintEntity {
     if (!updated) throw new Error('Complaint not found');
     return updated;
   
->>>>>>> origin/main
   }
 }
 
