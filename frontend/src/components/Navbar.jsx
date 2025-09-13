@@ -18,7 +18,11 @@ const Navbar = () => {
         {user ? (
           <>
             {isAdmin && (
+              <>
               <Link to="/categories" className="mr-4">Categories</Link>
+              <Link to="/complaints" className="mr-4">Complaints</Link>
+
+              </>
             )}
             <Link to="/profile" className="mr-4">Profile</Link>
             <button

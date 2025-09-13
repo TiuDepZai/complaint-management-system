@@ -38,16 +38,35 @@ class CategoryEntity {
     }
 
     static async update(id, updateData) {
-        if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid category ID');
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new Error('Invalid category ID');
+        }
 
-        const category = await CategoryModel.findById(id);
-        if (!category) throw new Error('Category not found');
+        // Prevent empty name
+        if (updateData.name && !updateData.name.trim()) {
+            throw new Error('Name cannot be empty');
+        }
 
-        const entity = new CategoryEntity(category.name, category.description, category.status);
-        entity.update(updateData);
-        Object.assign(category, entity.toObject());
-        return category.save();
+        // Trim name if present
+        if (updateData.name) {
+            updateData.name = updateData.name.trim();
+        }
+
+        // Validate status
+        if (updateData.status && !['Active', 'Inactive'].includes(updateData.status)) {
+            delete updateData.status; // ignore invalid status
+        }
+
+        const updated = await CategoryModel.findByIdAndUpdate(
+            id,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
+
+        if (!updated) throw new Error('Category not found');
+        return updated;
     }
+    
     static async remove(id) {
         if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid category ID');
         
