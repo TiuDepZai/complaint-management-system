@@ -1,13 +1,20 @@
+<<<<<<< HEAD
 // controllers/userController.js
 const UserModel = require('../models/User');
 const UserEntity = require('../entities/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+=======
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const UserEntity = require('../entities/User');
+>>>>>>> origin/main
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
+<<<<<<< HEAD
 const registerUser = async (req, res) => {
     const { name, email, password } = req.body;
     try {
@@ -19,6 +26,25 @@ const registerUser = async (req, res) => {
         res.status(201).json({
             id: doc.id,
             ...doc.toObject(),
+=======
+// Register new user
+const registerUser = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+
+        const userExists = await UserEntity.existsByEmail(email);
+        if (userExists) return res.status(400).json({ message: 'User already exists' });
+
+        const userEntity = new UserEntity({ name, email, password });
+        const doc = await UserEntity.create(userEntity);
+
+        const userData = doc.toObject();
+        delete userData.password;
+
+        res.status(201).json({
+            id: doc.id,
+            ...userData,
+>>>>>>> origin/main
             token: generateToken(doc.id)
         });
     } catch (error) {
@@ -26,6 +52,7 @@ const registerUser = async (req, res) => {
     }
 };
 
+<<<<<<< HEAD
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -33,6 +60,17 @@ const loginUser = async (req, res) => {
         if (user && (await bcrypt.compare(password, user.password))) {
             const userData = user.toObject();
             delete userData.password;
+=======
+// Login user
+const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await UserEntity.findByEmail(email);
+        if (user && (await bcrypt.compare(password, user.password))) {
+            const userData = user.toObject();
+            delete userData.password;
+
+>>>>>>> origin/main
             res.json({
                 id: user.id,
                 ...userData,
@@ -46,6 +84,7 @@ const loginUser = async (req, res) => {
     }
 };
 
+<<<<<<< HEAD
 
 const getProfile = async (req, res) => {
     try {
@@ -53,11 +92,24 @@ const getProfile = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         res.status(200).json(user.toObject());
+=======
+// Get current profile
+const getProfile = async (req, res) => {
+    try {
+        const user = await UserEntity.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const userData = user.toObject();
+        delete userData.password;
+
+        res.status(200).json(userData);
+>>>>>>> origin/main
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
+<<<<<<< HEAD
 const updateUserProfile = async (req, res) => {
     try {
         const userDoc = await UserModel.findById(req.user.id);
@@ -84,10 +136,35 @@ const updateUserProfile = async (req, res) => {
             id: userDoc.id,
             ...userDoc.toObject(),
             token: generateToken(userDoc.id)
+=======
+// Update profile
+const updateUserProfile = async (req, res) => {
+    try {
+        const userDoc = await UserEntity.findById(req.user.id);
+        if (!userDoc) return res.status(404).json({ message: 'User not found' });
+
+        const userEntity = new UserEntity(userDoc.toObject());
+        userEntity.updateProfile(req.body);
+
+        Object.assign(userDoc, userEntity.toObject());
+        await userDoc.save();
+
+        const userData = userDoc.toObject();
+        delete userData.password;
+
+        res.json({
+            id: userDoc.id,
+            ...userData,
+            token: generateToken(userDoc.id) // optional: only if you want a refreshed token
+>>>>>>> origin/main
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
+<<<<<<< HEAD
 module.exports = { registerUser, loginUser, updateUserProfile, getProfile };
+=======
+module.exports = { registerUser, loginUser, updateUserProfile, getProfile };
+>>>>>>> origin/main

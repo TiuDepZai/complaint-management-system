@@ -8,13 +8,31 @@ dotenv.config();
 
 const categoryRoutes = require('./routes/categoryRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
+<<<<<<< HEAD
 const app = express();
 
 app.use(cors());
+=======
+const adminRoutes = require('./routes/adminRoutes');
+
+const app = express();
+
+app.use(cors());
+
+>>>>>>> origin/main
 app.use(express.json());
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/categories', categoryRoutes);
 app.use('/api/complaints', complaintRoutes);
+<<<<<<< HEAD
+=======
+app.use('/api/admin', adminRoutes);
+
+app.get('/ping', (req, res) => {
+  res.send('pong');
+});
+
+>>>>>>> origin/main
 //app.use('/api/tasks', require('./routes/taskRoutes'));
 
 async function ensureFirstAdmin() {
@@ -45,7 +63,11 @@ async function ensureFirstAdmin() {
 // Export the app object for testing
 if (require.main === module) {
     connectDB();
+<<<<<<< HEAD
     // If the file is run directly, start the server
+=======
+    ensureFirstAdmin();
+>>>>>>> origin/main
     const PORT = process.env.PORT || 5001;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   }
