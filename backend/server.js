@@ -9,6 +9,7 @@ dotenv.config();
 const categoryRoutes = require('./routes/categoryRoutes');
 const complaintRoutes = require('./routes/complaintRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const User = require('./models/User');
 
 const app = express();
 
