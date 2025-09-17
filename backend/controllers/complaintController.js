@@ -1,4 +1,5 @@
 const ComplaintEntity = require('../entities/Complaint');
+const mongoose = require('mongoose');
 
 const create = async (req, res) => {
   try {
