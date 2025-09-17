@@ -1,5 +1,6 @@
 const ComplaintModel = require('../models/Complaint');
 const CategoryModel = require('../models/Category');
+const UserModel = require('../models/User');
 const mongoose = require('mongoose');
 
 class ComplaintEntity {
@@ -98,24 +99,69 @@ class ComplaintEntity {
 }
 
 
+  static async remove(id, user){
+    if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid complaint ID');
+
+    const complaint = await ComplaintModel.findById(id).select('createdBy');
+    if (!complaint) throw new Error('Complaint not found');
+
+    const isOwner = complaint.createdBy.toString() === user._id.toString();
+    const isAdmin = user.role === 'admin';
+    if (!isOwner && !isAdmin) throw new Error('Not authorized to delete this complaint');
+
+    await complaint.deleteOne();
+    return true;
+  }
+
+  // static async assignStaff(complaintId, staffId) {
+  //   let staff = null;
+
+  //   if (staffId) {
+  //     staff = await UserModel.findById(staffId);
+  //     if (!staff || staff.role !== 'staff') {
+  //       throw new Error('Invalid staff user');
+  //     }
+  //   }
+  //   const updated = await ComplaintModel.findByIdAndUpdate(
+  //     complaintId,
+  //     { assignedTo: staff ? staffId : null },
+  //     { new: true }
+  //   ).populate('assignedTo', 'name email role');
+
+  //   if (!updated) throw new Error('Complaint not found');
+  //   return updated;
+  
+  // }
+
   static async assignStaff(complaintId, staffId) {
-    let staff = null;
+    let update = {
+      assignedTo: null,
+      assignedDate: null,
+      status: 'Pending'
+    };
 
     if (staffId) {
-      staff = await UserModel.findById(staffId);
+      // validate staff user
+      const staff = await UserModel.findById(staffId);
       if (!staff || staff.role !== 'staff') {
         throw new Error('Invalid staff user');
       }
+
+      update = {
+        assignedTo: staff._id,
+        assignedDate: new Date(),
+        status: 'Assigned'
+      };
     }
+
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
-      { assignedTo: staff ? staffId : null },
-      { new: true }
+      { $set: update },
+      { new: true, runValidators: true }
     ).populate('assignedTo', 'name email role');
 
     if (!updated) throw new Error('Complaint not found');
     return updated;
-  
   }
 }
 
