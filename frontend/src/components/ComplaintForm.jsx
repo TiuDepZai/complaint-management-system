@@ -12,6 +12,7 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
     description: '',
     category: '',
     priority: 'Medium',
+    assignTo: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -89,6 +90,8 @@ export default function ComplaintForm({ onClose, onSubmitted }) {
         category: form.category,
         priority: form.priority,
       };
+
+      console.log('Submitting complaint with payload:', payload);
       const res = await axiosInstance.post('/api/complaints', payload, { headers });
 
 
