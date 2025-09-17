@@ -8,6 +8,12 @@ const complaintSchema = new mongoose.Schema({
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true, index: true },
   priority: { type: String, required: true, enum: ['Low', 'Medium', 'High', 'Urgent'], default: 'Medium' },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  assignedDate: { type: Date, default: null },
+  status: { 
+    type: String, 
+    enum: ['Pending', 'Assigned', 'In Progress', 'Resolved', 'Closed'], 
+    default: 'Pending' 
+  },
   reference: { type: String, unique: true, index: true },                 // complaint ref no.
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true }, // owner
 }, { timestamps: true });
