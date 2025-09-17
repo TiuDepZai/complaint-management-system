@@ -11,6 +11,7 @@ class ComplaintEntity {
     this.category = data.category;
     this.priority = data.priority || 'Medium';
     this.createdBy = data.createdBy;
+    this.status = data.status || 'Pending';
     this.assignedTo = data.assignedTo || null;
     this.reference = data.reference; 
   }
@@ -25,7 +26,8 @@ class ComplaintEntity {
       description: this.description,
       category: this.category,
       priority: this.priority,
-      createdBy: this.createdBy,    
+      createdBy: this.createdBy,
+      status: this.status,    
       assignedTo: this.assignedTo,
       reference: this.reference
     };
@@ -52,91 +54,49 @@ class ComplaintEntity {
     .lean();
   }
 
-  // static async update(id, user, data){
-  //   if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid complaint ID');
-
-  //   const complaint = await ComplaintModel.findById(id);
-  //   if (!complaint) throw new Error('Complaint not found');
-
-  //   if (user.role !== 'admin' && complaint.createdBy.toString() !== user._id.toString()) {
-  //     throw new Error('Not authorized to update this complaint');
-  //   }
-
-  //   const updatableFields = ['subject', 'description', 'category', 'priority', 'status', 'assignedTo'];
-  //   for (const field of updatableFields) {
-  //     if (data[field] !== undefined) complaint[field] = data[field];
-  //   }
-
-  //   if (data.category) {
-  //     const cat = await CategoryModel.findById({_id: data.category, status: 'Active' }).lean();
-  //     if (!cat) throw new Error('Invalid or inactive category');
-  //   }
-    
-
-  //   return complaint.save()
-  //   .then(doc => doc.populate('category', 'name status')     //error on this line
-  //   .populate('createdBy', 'name email'));
-  // }
 
   static async update(id, user, data) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid complaint ID');
-    }
-
-    const complaint = await ComplaintModel.findById(id);
-    if (!complaint) throw new Error('Complaint not found');
-
-    // AuthZ: allow admin, or the creator only
-    if (user.role !== 'admin' && !complaint.createdBy.equals(user._id)) {
-      throw new Error('Not authorized to update this complaint');
-    }
-
-    // Only allow specific fields
-    const updatableFields = ['subject', 'description', 'category', 'priority', 'status', 'assignedTo'];
-
-    // If category is being changed, validate it's Active before applying it
-    if (data.category !== undefined) {
-      if (!mongoose.Types.ObjectId.isValid(data.category)) {
-        throw new Error('Invalid category ID');
-      }
-      const cat = await CategoryModel.findOne({ _id: data.category, status: 'Active' })
-        .select('_id')
-        .lean();
-      if (!cat) throw new Error('Invalid or inactive category');
-    }
-
-    // Apply updates
-    for (const field of updatableFields) {
-      if (data[field] !== undefined) {
-        complaint[field] = data[field];
-      }
-    }
-
-    // Save then populate (Mongoose v6+: populate is async)
-    await complaint.save();
-
-    await complaint.populate([
-      { path: 'category', select: 'name status' },
-      { path: 'createdBy', select: 'name email' },
-    ]);
-
-    return complaint; 
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new Error('Invalid complaint ID');
   }
 
+  const complaint = await ComplaintModel.findById(id);
+  if (!complaint) throw new Error('Complaint not found');
 
-  static async remove(id, user){
-    if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid complaint ID');
-
-    const complaint = await ComplaintModel.findById(id).select('createdBy');
-    if (!complaint) throw new Error('Complaint not found');
-
-    const isOwner = complaint.createdBy.toString() === user._id.toString();
-    const isAdmin = user.role === 'admin';
-    if (!isOwner && !isAdmin) throw new Error('Not authorized to delete this complaint');
-
-    await complaint.deleteOne();
-    return true;
+  if (user.role !== 'admin' && !complaint.createdBy.equals(user._id)) {
+    throw new Error('Not authorized to update this complaint');
   }
+
+  const updatableFields = ['subject', 'description', 'category', 'priority', 'status', 'assignedTo'];
+
+  if (data.category !== undefined) {
+    if (!mongoose.Types.ObjectId.isValid(data.category)) {
+      throw new Error('Invalid category ID');
+    }
+    const cat = await CategoryModel.findOne({ _id: data.category, status: 'Active' })
+      .select('_id')
+      .lean();
+    if (!cat) throw new Error('Invalid or inactive category');
+  }
+
+  for (const field of updatableFields) {
+    if (field === 'status') {
+      complaint.status = data.status || 'Pending';
+    } else if (data[field] !== undefined) {
+      complaint[field] = data[field];
+    }
+  }
+
+  await complaint.save();
+
+  await complaint.populate([
+    { path: 'category', select: 'name status' },
+    { path: 'createdBy', select: 'name email' },
+  ]);
+
+  return complaint;
+}
+
 
   static async assignStaff(complaintId, staffId) {
     let staff = null;
