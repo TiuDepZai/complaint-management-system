@@ -43,14 +43,14 @@ class ComplaintEntity {
     return ComplaintModel.create(entity.toObject());
   }
     
-  static async list(user){
-    let match = {createdBy: user._id};
-    if(user.role === 'admin'){
-      match = {};
-    }
-    return ComplaintModel.find(match)
-    .populate('category', 'name status')
-    .populate('createdBy', 'name email')
+  static async list(user) {
+  const isAdmin = user.role === 'admin';
+  const match = isAdmin ? {} : { createdBy: user._id };
+
+  return ComplaintModel.find(match)
+    .populate({ path: 'assignedTo', select: isAdmin ? 'name email role' : 'name role' })
+    .populate({ path: 'category',   select: 'name status' })
+    .populate({ path: 'createdBy',  select: 'name email' })
     .sort({ createdAt: -1 })
     .lean();
   }
@@ -158,9 +158,14 @@ class ComplaintEntity {
       complaintId,
       { $set: update },
       { new: true, runValidators: true }
-    ).populate('assignedTo', 'name email role');
+    );
 
     if (!updated) throw new Error('Complaint not found');
+    await updated.populate([
+      { path: 'assignedTo', select: 'name email role' },
+      { path: 'category',   select: 'name' },
+      { path: 'createdBy',  select: 'name email' },
+    ]);
     return updated;
   }
 }
