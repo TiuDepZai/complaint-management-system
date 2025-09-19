@@ -41,11 +41,14 @@ export default function Home() {
     }
   };
 
+  // Buttons styled using your style guide
   const CTAButtons = () =>
     isAdmin ? (
       <button
         onClick={handleViewAllComplaints}
-        className="bg-blue-600 text-white px-5 py-2 rounded shadow hover:bg-blue-700"
+        className="bg-[#1E4E8C] text-white px-5 py-2 rounded shadow 
+                   hover:bg-[#163B68] 
+                   disabled:bg-[#DDDDDD] disabled:text-[#AAAAAA]"
       >
         View All Complaints
       </button>
@@ -53,13 +56,17 @@ export default function Home() {
       <div className="flex flex-wrap gap-3 justify-center">
         <button
           onClick={handleRegisterComplaint}
-          className="bg-blue-600 text-white px-5 py-2 rounded shadow hover:bg-blue-700"
+          className="bg-[#1E4E8C] text-white px-5 py-2 rounded shadow 
+                     hover:bg-[#163B68] 
+                     disabled:bg-[#DDDDDD] disabled:text-[#AAAAAA]"
         >
           Register Complaint
         </button>
         <button
           onClick={handleViewMyComplaints}
-          className="bg-gray-700 text-white px-5 py-2 rounded shadow hover:bg-gray-800"
+          className="border border-[#4A90E2] bg-white text-[#4A90E2] 
+                     px-5 py-2 rounded shadow 
+                     hover:bg-[#E8F2FC]"
         >
           View Complaints
         </button>
@@ -173,7 +180,6 @@ export default function Home() {
               <stop offset="1" stopColor="white" stopOpacity="0" />
             </linearGradient>
           </defs>
-          {/* diagonal diamonds */}
           <rect x="-50%" y="-50%" width="200%" height="200%" fill="url(#g)" transform="rotate(45 0 0)" />
           <rect x="-30%" y="-50%" width="200%" height="200%" fill="url(#g)" transform="rotate(45 0 0)" />
           <rect x="-10%" y="-50%" width="200%" height="200%" fill="url(#g)" transform="rotate(45 0 0)" />
