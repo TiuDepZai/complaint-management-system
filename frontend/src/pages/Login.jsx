@@ -3,28 +3,48 @@ import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import axiosInstance from "../axiosConfig";
 
+// Import your illustration from src/assets (filename is case-sensitive)
+import loginImg from "../assets/other_images/LoginImage.png";
+
+/* ---------------- Inline icons (no extra deps) ---------------- */
 const MailIcon = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400">
+  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" aria-hidden="true">
     <path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5L4 8V6l8 5 8-5v2Z"/>
   </svg>
 );
 const LockIcon = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400">
+  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" aria-hidden="true">
     <path fill="currentColor" d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5Zm3 8H9V6a3 3 0 0 1 6 0v3Z"/>
   </svg>
 );
-const EyeIcon = (props) => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" {...props}>
+const EyeIcon = () => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" aria-hidden="true">
     <path fill="currentColor" d="M12 5C7 5 2.73 8.11 1 12c1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Z"/>
   </svg>
 );
-const EyeOffIcon = (props) => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" {...props}>
+const EyeOffIcon = () => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" aria-hidden="true">
     <path fill="currentColor" d="M2.1 3.51 20.49 21.9l-1.41 1.41-2.29-2.29A12.91 12.91 0 0 1 12 19C7 19 2.73 15.89 1 12c.68-1.53 1.76-2.94 3.08-4.12L.69 4.92 2.1 3.51ZM12 7a5 5 0 0 1 5 5c0 .63-.12 1.22-.34 1.77L13.23 10.3A2.98 2.98 0 0 0 12 10a3 3 0 0 0-3 3c0 .44.1.86.28 1.23l-1.5-1.5A4.98 4.98 0 0 1 12 7Z"/>
   </svg>
 );
 
+/* ---------- Reusable social button (Secondary style from your guide) ---------- */
+function SocialButton({ label, svg }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Continue with ${label}`}
+      className="flex items-center gap-2 rounded-full border border-[#4A90E2] bg-white
+                 px-4 py-2 text-sm font-medium text-[#4A90E2] hover:bg-[#E8F2FC] transition"
+    >
+      <span className="w-4 h-4 grid place-items-center">{svg}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
 const Login = () => {
+  // Keep your original state and auth flow
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
@@ -33,6 +53,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Submit handler preserved (axios -> context -> navigate)
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -47,50 +68,49 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full bg-slate-100 flex items-center justify-center p-4">
+      {/* Two-column card: left illustration, right form */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 rounded-3xl bg-white shadow-xl overflow-hidden">
-        {/* Panel izquierdo (ilustración) */}
-        <div className="relative hidden lg:flex items-center justify-center p-10 bg-gradient-to-b from-blue-700 to-blue-900">
-          <svg viewBox="0 0 300 300" className="w-80 h-80 opacity-95">
-            <defs>
-              <linearGradient id="lockGrad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#e6efff" stopOpacity="0.95" />
-              </linearGradient>
-            </defs>
-            <circle cx="150" cy="190" r="95" fill="url(#lockGrad)" />
-            <path d="M95 120a55 55 0 0 1 110 0v22l20 9v-31a75 75 0 0 0-150 0v31l20-9v-22z" fill="#dbe3f0" />
-            <path d="M150 170a25 25 0 0 0-10 48l1 39a9 9 0 0 0 18 0l1-39a25 25 0 0 0-10-48z" fill="#3b82f6" />
-          </svg>
+        {/* Left panel with your PNG (hidden on small screens) */}
+        <div className="relative hidden lg:flex items-center justify-center bg-gradient-to-b from-blue-700 to-blue-900">
+          <img
+            src={loginImg}
+            alt="Login illustration"
+            className="object-contain max-h-[520px] w-auto"
+          />
         </div>
 
-        {/* Panel derecho (formulario) */}
+        {/* Right panel with the form */}
         <div className="p-6 sm:p-10">
           <div className="max-w-md mx-auto">
             <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900">Welcome back</h1>
 
-            {/* Tabs Login / Register */}
+            {/* Tabs: Login (Primary) and Register (Secondary) */}
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                className="flex-1 rounded-full border px-4 py-2 text-sm font-medium bg-blue-700 text-white shadow"
+                className="flex-1 rounded-full px-4 py-2 text-sm font-medium
+                           bg-[#1E4E8C] text-white hover:bg-[#163B66] transition"
               >
                 Login
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/register")}
-                className="flex-1 rounded-full border px-4 py-2 text-sm font-medium bg-white text-slate-700 hover:shadow"
+                className="flex-1 rounded-full border border-[#4A90E2] bg-white
+                           px-4 py-2 text-sm font-medium text-[#4A90E2]
+                           hover:bg-[#E8F2FC] transition"
               >
                 Register
               </button>
             </div>
 
-            {/* Form */}
+            {/* Form fields */}
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-              {/* Email */}
+              {/* Email field with leading icon */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
-                <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-600">
+                <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5
+                                focus-within:ring-2 focus-within:ring-[#1E4E8C]">
                   <MailIcon />
                   <input
                     type="email"
@@ -103,10 +123,11 @@ const Login = () => {
                 </div>
               </div>
 
-              {/* Password */}
+              {/* Password field with toggle */}
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1">Password</label>
-                <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-600">
+                <div className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5
+                                focus-within:ring-2 focus-within:ring-[#1E4E8C]">
                   <LockIcon />
                   <input
                     type={showPassword ? "text" : "password"}
@@ -127,14 +148,14 @@ const Login = () => {
                 </div>
               </div>
 
-              {/* Remember / Forgot */}
+              {/* Remember me + Forgot password */}
               <div className="flex items-center justify-between text-xs">
                 <label className="flex items-center gap-2 select-none cursor-pointer">
                   <input
                     type="checkbox"
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
-                    className="accent-blue-700 w-3.5 h-3.5"
+                    className="accent-[#1E4E8C] w-3.5 h-3.5"
                   />
                   <span className="text-slate-700">Remember Me</span>
                 </label>
@@ -143,27 +164,52 @@ const Login = () => {
                 </a>
               </div>
 
-              {/* Submit */}
+              {/* Primary button per style guide */}
               <button
                 type="submit"
-                className="w-full rounded-md bg-blue-800 text-white py-3 text-sm font-medium hover:bg-blue-900 focus:ring-2 focus:ring-blue-600"
+                className="w-full rounded-md bg-[#1E4E8C] text-white py-3 text-sm font-medium
+                           hover:bg-[#163B66] disabled:bg-[#DDDDDD] disabled:text-[#AAAAAA]
+                           focus:ring-2 focus:ring-[#1E4E8C] transition"
               >
                 Login
               </button>
             </form>
 
-            {/* Divider y redes */}
+            {/* Divider */}
             <div className="mt-6 text-center text-xs text-slate-500">or continue with</div>
-            <div className="mt-3 flex items-center justify-center gap-4">
-              <SocialBtn label="Google" />
-              <SocialBtn label="Apple" />
-              <SocialBtn label="Facebook" />
+
+            {/* Social buttons styled as Secondary */}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+              <SocialButton
+                label="Google"
+                svg={
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                    <path fill="currentColor" d="M21.35 11.1H12v2.8h5.3c-.23 1.43-1.7 4.2-5.3 4.2-3.19 0-5.8-2.63-5.8-5.9s2.6-5.9 5.8-5.9c1.82 0 3.04.77 3.74 1.44l1.97-1.9C16.45 4 14.45 3 12 3 6.98 3 2.9 7.03 2.9 12s4.08 9 9.1 9c5.25 0 8.7-3.69 8.7-8.9 0-.6-.06-1.02-.15-1.99Z"/>
+                  </svg>
+                }
+              />
+              <SocialButton
+                label="Apple"
+                svg={
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                    <path fill="currentColor" d="M16.365 13.64c.03 3.2 2.806 4.27 2.84 4.28-.024.08-.445 1.53-1.47 3.03-.888 1.3-1.809 2.6-3.261 2.63-1.427.03-1.884-.85-3.514-.85-1.63 0-2.143.82-3.49.88-1.403.06-2.471-1.4-3.366-2.69-1.836-2.65-3.243-7.49-1.36-10.76.94-1.63 2.616-2.67 4.44-2.7 1.386-.03 2.693.93 3.513.93.82 0 2.42-1.15 4.087-.98.697.03 2.66.28 3.92 2.1-0.1.06-2.33 1.36-2.16 4.14z"/>
+                  </svg>
+                }
+              />
+              <SocialButton
+                label="Facebook"
+                svg={
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+                    <path fill="currentColor" d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.23.2 2.23.2v2.45h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12"/>
+                  </svg>
+                }
+              />
             </div>
 
             {/* Sign up link */}
             <p className="mt-6 text-center text-xs text-slate-600">
               Don’t have an account?{" "}
-              <Link to="/register" className="text-blue-700 hover:underline">
+              <Link to="/register" className="text-[#1E4E8C] hover:underline">
                 Sign Up
               </Link>
             </p>
@@ -173,17 +219,5 @@ const Login = () => {
     </div>
   );
 };
-
-function SocialBtn({ label }) {
-  return (
-    <button
-      type="button"
-      aria-label={`Continue with ${label}`}
-      className="grid place-items-center w-10 h-10 rounded-full border hover:shadow focus:ring-2 focus:ring-blue-600"
-    >
-      <span className="text-xs">{label[0]}</span>
-    </button>
-  );
-}
 
 export default Login;
