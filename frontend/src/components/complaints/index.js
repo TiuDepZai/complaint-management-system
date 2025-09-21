@@ -80,32 +80,26 @@ export function AssigneeCell({ complaint, isAdmin, token, onUpdated, staffOption
   );
 }
 
-export function StatusCell({ complaint, user, token, onUpdated }) {
+export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
   const status = normalizeStatus(complaint.status);
-  const assigneeId = complaint?.assignedTo?._id;
-  const userId = user?.id || user?._id || user?.userId || "";
-  const isAssignee = assigneeId && String(assigneeId) === String(userId);
   const [saving, setSaving] = useState(false);
-
-  const saveStatus = async (newStatus) => {
-    const res = await axiosInstance.put(
-      `/api/complaints/${complaint._id}`,
-      { status: newStatus },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    onUpdated(res.data);
-  };
 
   const handleChange = async (e) => {
     try {
       setSaving(true);
-      await saveStatus(e.target.value);
+      const res = await axiosInstance.put(
+        `/api/complaints/${complaint._id}`,
+        { status: e.target.value },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      onUpdated(res.data);
     } finally {
       setSaving(false);
     }
   };
 
-  if (!isAssignee){
+  // Non-admins see read-only status
+  if (!isAdmin) {
     return (
       <div className="justify-self-start">
         <StatusPill value={status} />
@@ -113,6 +107,7 @@ export function StatusCell({ complaint, user, token, onUpdated }) {
     );
   }
 
+  // Admins can change status
   return (
     <select
       value={status}
@@ -127,3 +122,4 @@ export function StatusCell({ complaint, user, token, onUpdated }) {
     </select>
   );
 }
+

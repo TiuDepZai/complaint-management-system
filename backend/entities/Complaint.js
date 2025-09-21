@@ -44,15 +44,38 @@ class ComplaintEntity {
   }
     
   static async list(user) {
-  const isAdmin = user.role === 'admin';
-  const match = isAdmin ? {} : { createdBy: user._id };
+    const isAdmin = user.role === 'admin';
+    const isStaff = user.role === 'staff';
 
-  return ComplaintModel.find(match)
-    .populate({ path: 'assignedTo', select: isAdmin ? 'name email role' : 'name role' })
-    .populate({ path: 'category',   select: 'name status' })
-    .populate({ path: 'createdBy',  select: 'name email' })
-    .sort({ createdAt: -1 })
-    .lean();
+    let match = {};
+
+    if (isAdmin) {
+      // admin sees all complaints
+      match = {};
+    } else if (isStaff) {
+      // staff sees only complaints assigned to them
+      match = { assignedTo: user._id };
+    } else {
+      // normal users see only complaints they created
+      match = { createdBy: user._id };
+    }
+
+    return ComplaintModel.find(match)
+      .populate({
+        path: 'assignedTo',
+        select: isAdmin ? 'name email role' : 'name role'
+      })
+      .populate({
+        path: 'category',
+        select: 'name status'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name email'
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
   }
 
 
@@ -113,25 +136,6 @@ class ComplaintEntity {
     return true;
   }
 
-  // static async assignStaff(complaintId, staffId) {
-  //   let staff = null;
-
-  //   if (staffId) {
-  //     staff = await UserModel.findById(staffId);
-  //     if (!staff || staff.role !== 'staff') {
-  //       throw new Error('Invalid staff user');
-  //     }
-  //   }
-  //   const updated = await ComplaintModel.findByIdAndUpdate(
-  //     complaintId,
-  //     { assignedTo: staff ? staffId : null },
-  //     { new: true }
-  //   ).populate('assignedTo', 'name email role');
-
-  //   if (!updated) throw new Error('Complaint not found');
-  //   return updated;
-  
-  // }
 
   static async assignStaff(complaintId, staffId) {
     let update = {

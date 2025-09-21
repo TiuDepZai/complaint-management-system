@@ -57,27 +57,26 @@ export default function Complaints() {
   };
 
   const fetchComplaints = async () => {
-    if (!token) {
-      setComplaints([]);
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      setLoadError("");
+  if (!token) {
+    setComplaints([]);
+    setLoading(false);
+    return;
+  }
+  try {
+    setLoading(true);
+    setLoadError("");
 
-      const wantAll = isAdmin && searchParams.get("all") === "1";
-      const qs = wantAll ? "?all=1" : "";
-      const res = await axiosInstance.get(`/api/complaints${qs}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setComplaints(res.data || []);
-    } catch {
-      setLoadError("Failed to load complaints.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const res = await axiosInstance.get("/api/complaints", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setComplaints(res.data || []);
+  } catch {
+    setLoadError("Failed to load complaints.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchComplaints();

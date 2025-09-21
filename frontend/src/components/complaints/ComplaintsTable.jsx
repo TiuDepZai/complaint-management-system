@@ -44,7 +44,13 @@ export default function ComplaintsTable({
             <div className="font-mono">{c.reference}</div>
             <div>{c.category?.name || "-"}</div>
 
-            <StatusCell complaint={c} user={user} token={token} onUpdated={onUpdated} />
+            <StatusCell 
+              isAdmin={user?.role === "admin"}
+              complaint={c} 
+              user={user} 
+              token={token} 
+              onUpdated={onUpdated} 
+              />
 
             <AssigneeCell
               complaint={c}
