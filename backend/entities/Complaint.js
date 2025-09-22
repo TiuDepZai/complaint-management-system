@@ -87,7 +87,23 @@ class ComplaintEntity {
   const complaint = await ComplaintModel.findById(id);
   if (!complaint) throw new Error('Complaint not found');
 
-  if (user.role !== 'admin' && !complaint.createdBy.equals(user._id)) {
+  // if (user.role !== 'admin' && !complaint.createdBy.equals(user._id)) {
+  //   throw new Error('Not authorized to update this complaint');
+  // }
+  // NEW: allow admin, the creator, or the assigned staff member
+  const isOwner = complaint.createdBy?.equals
+    ? complaint.createdBy.equals(user._id)
+    : String(complaint.createdBy) === String(user._id);
+
+  const isAssignedToUser = complaint.assignedTo?.equals
+    ? complaint.assignedTo.equals(user._id)
+    : String(complaint.assignedTo || "") === String(user._id);
+
+  if (
+    user.role !== 'admin' &&
+    !isOwner &&
+    !(user.role === 'staff' && isAssignedToUser)
+  ) {
     throw new Error('Not authorized to update this complaint');
   }
 

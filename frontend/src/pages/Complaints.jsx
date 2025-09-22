@@ -19,9 +19,9 @@ function isAssignedToUser(c, user) {
     (a && (a._id || a.id || a.userId)) || (typeof a === "string" ? a : "")
   );
   const aemail =
-    (a && (a.email || a.userEmail)) ?
-      String(a.email || a.userEmail).toLowerCase() :
-      "";
+    (a && (a.email || a.userEmail))
+      ? String(a.email || a.userEmail).toLowerCase()
+      : "";
   const asPlainEmail =
     typeof c.assignedTo === "string" && c.assignedTo.includes("@")
       ? c.assignedTo.toLowerCase()
@@ -139,14 +139,17 @@ export default function Complaints() {
   };
 
   const canEdit = (c) => {
-    if (!user) return false;
-    if (user.role === "admin") return true;
-    const uid = user.id || user._id;
-    const ownerId = c.createdBy?._id || c.createdBy;
-    const isOwner = uid && String(uid) === String(ownerId);
-    const assignedToMe = isAssignedToUser(c, user);
-    return Boolean(isOwner || assignedToMe);
-  };
+  if (!user) return false;
+  if (user.role === "staff") return false;   // <- disallow staff edits
+  if (user.role === "admin") return true;
+
+  const uid = user.id || user._id;
+  const ownerId = c.createdBy?._id || c.createdBy;
+  const isOwner = uid && String(uid) === String(ownerId);
+  const assignedToMe = isAssignedToUser(c, user);
+  return Boolean(isOwner || assignedToMe);
+};
+
   const canDelete = (c) => {
     if (!user) return false;
     if (user.role === "admin") return true;
@@ -173,21 +176,29 @@ export default function Complaints() {
 
   /** list used for the stat cards:
    *  - admin: all complaints
-   *  - user: only complaints assigned to them
+   *  - non-admin: complaints owned by the user OR assigned to them
    */
-  const statsList = useMemo(
-    () => (isAdmin ? complaints : complaints.filter((c) => isAssignedToUser(c, user))),
-    [complaints, isAdmin, user]
-  );
+  const statsList = useMemo(() => {
+    if (isAdmin) return complaints;
+
+    const uid = String(user?.id || user?._id || "");
+    return complaints.filter((c) => {
+      const ownerId = String(c?.createdBy?._id || c?.createdBy || "");
+      const isOwner = uid && ownerId && uid === ownerId;
+      return isOwner || isAssignedToUser(c, user);
+    });
+  }, [complaints, isAdmin, user]);
 
   /** filtering & counts */
   const filtered = useMemo(() => {
     const text = q.trim().toLowerCase();
+    const uid = String(user?.id || user?._id || "");
+
     return complaints.filter((c) => {
       const ref = (c?.reference ?? "").toLowerCase();
       const desc = (c?.description ?? "").toLowerCase();
       const cat = (c?.category?.name ?? "").toLowerCase();
-      const status = normalizeStatus(c?.status ?? "").toLowerCase();
+      const status = normalizeStatus(c?.status ?? "").toLowerCase(); // "in progress" etc.
       const assigned = (getAssigneeDisplay(c) || "").toLowerCase();
 
       const matchesText =
@@ -202,11 +213,15 @@ export default function Complaints() {
         statusFilter === "all" ||
         (statusFilter === "pending" && status === "pending") ||
         (statusFilter === "assigned" && status === "assigned") ||
-        (statusFilter === "inprogress" && status === "inprogress") ||
+        (statusFilter === "inprogress" && status === "in progress") ||
         (statusFilter === "resolved" && status === "resolved");
 
-      // IMPORTANT: non-admins only see their assigned complaints
-      if (!isAdmin && !isAssignedToUser(c, user)) return false;
+      // non-admins see complaints they own OR are assigned to
+      if (!isAdmin) {
+        const ownerId = String(c?.createdBy?._id || c?.createdBy || "");
+        const isOwner = uid && ownerId && uid === ownerId;
+        if (!isOwner && !isAssignedToUser(c, user)) return false;
+      }
 
       return matchesText && statusOk;
     });
@@ -250,9 +265,19 @@ export default function Complaints() {
 
       {/* Success banner */}
       {pageSuccess && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-4 py-2 text-green-800" role="status" aria-live="polite">
+        <div
+          className="mb-4 flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-4 py-2 text-green-800"
+          role="status"
+          aria-live="polite"
+        >
           <span>{pageSuccess}</span>
-          <button onClick={() => setPageSuccess("")} className="text-green-700 hover:text-green-900" aria-label="Dismiss">×</button>
+          <button
+            onClick={() => setPageSuccess("")}
+            className="text-green-700 hover:text-green-900"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
         </div>
       )}
 
@@ -298,7 +323,7 @@ export default function Complaints() {
           </select>
         </div>
 
-        {token && user?.role !== "admin" && (
+        {token && user?.role !== "admin" && user?.role !== "staff" && (
           <button
             onClick={() => {
               setOpen(true);
@@ -322,6 +347,7 @@ export default function Complaints() {
         staffOptions={staffOptions}
         showUserCol={showUserCol}
         canEdit={canEdit}
+        onEdit={setEditingComplaint}
         canDelete={canDelete}
         onUpdated={applyUpdate}
         onDelete={handleDelete}

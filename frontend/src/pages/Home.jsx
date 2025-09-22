@@ -19,6 +19,7 @@ export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
+  const isStaff = user?.role === 'staff';
   const year = new Date().getFullYear();
 
   const handleRegisterComplaint = () => {
@@ -41,18 +42,37 @@ export default function Home() {
     }
   };
 
-  // Buttons styled using your style guide
-  const CTAButtons = () =>
-    isAdmin ? (
-      <button
-        onClick={handleViewAllComplaints}
-        className="bg-[#1E4E8C] text-white px-5 py-2 rounded shadow 
-                   hover:bg-[#163B68] 
-                   disabled:bg-[#DDDDDD] disabled:text-[#AAAAAA]"
-      >
-        View All Complaints
-      </button>
-    ) : (
+  // Buttons area
+  const CTAButtons = () => {
+    if (isAdmin) {
+      return (
+        <button
+          onClick={handleViewAllComplaints}
+          className="bg-[#1E4E8C] text-white px-5 py-2 rounded shadow 
+                     hover:bg-[#163B68] 
+                     disabled:bg-[#DDDDDD] disabled:text-[#AAAAAA]"
+        >
+          View All Complaints
+        </button>
+      );
+    }
+
+    if (isStaff) {
+      // Staff: no "Register", only "View Assigned Complaints"
+      return (
+        <button
+          onClick={handleViewMyComplaints}
+          className="border border-[#4A90E2] bg-white text-[#4A90E2] 
+                     px-5 py-2 rounded shadow 
+                     hover:bg-[#E8F2FC]"
+        >
+          View Assigned Complaints
+        </button>
+      );
+    }
+
+    // Normal user (or signed out): show both
+    return (
       <div className="flex flex-wrap gap-3 justify-center">
         <button
           onClick={handleRegisterComplaint}
@@ -72,6 +92,7 @@ export default function Home() {
         </button>
       </div>
     );
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -164,11 +185,9 @@ export default function Home() {
         </section>
       </main>
 
-      {/* FOOTER — redesigned */}
+      {/* FOOTER */}
       <footer className="relative mt-8 text-white overflow-hidden">
-        {/* Gradient background */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800" />
-        {/* Diagonal pattern overlay (subtle) */}
         <svg
           className="absolute inset-0 w-full h-full opacity-20"
           preserveAspectRatio="none"
@@ -187,14 +206,12 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-6 py-10">
           <div className="grid gap-10 md:grid-cols-3 items-start">
-            {/* Brand */}
             <div className="md:col-span-1">
               <div className="text-2xl md:text-3xl font-extrabold tracking-tight">
                 ComplaintHub
               </div>
             </div>
 
-            {/* Links */}
             <div className="md:col-span-2 grid grid-cols-2 gap-8">
               <div>
                 <div className="font-semibold mb-3">Quick Links</div>

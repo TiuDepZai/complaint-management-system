@@ -16,10 +16,10 @@ export default function Navbar() {
   const menuRef = useRef(null);
 
   const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "staff";
   const avatarSrc = isAdmin ? adminImg : userImg;
   const userName = user?.name || user?.fullName || user?.username || "User";
 
-  // Close dropdown on outside click
   useEffect(() => {
     const onClick = (e) => {
       if (!menuRef.current) return;
@@ -34,7 +34,7 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  // Center nav links (landing)
+  // Center nav links
   const landingLinks = useMemo(
     () => [
       { label: "Home", to: "/" },
@@ -44,7 +44,6 @@ export default function Navbar() {
     []
   );
 
-  // Center nav links (admin)
   const adminLinks = useMemo(
     () => [
       { label: "Home", to: "/" },
@@ -54,9 +53,7 @@ export default function Navbar() {
     []
   );
 
-  // Center nav links (authenticated non-admin)
-  const userLinks = landingLinks;
-
+  const userLinks = landingLinks; // non-admin center nav stays as landing links
   const links = !user ? landingLinks : isAdmin ? adminLinks : userLinks;
 
   const linkClasses = ({ isActive }) =>
@@ -73,15 +70,19 @@ export default function Navbar() {
         { to: "/complaints?all=1", label: "Dashboard" },
         { to: "/categories", label: "Categories" },
       ]
+    : isStaff
+    ? [
+        { to: "/profile", label: "Profile" },
+        { to: "/complaints", label: "Dashboard" }, // no "New Complaint" for staff
+      ]
     : [
         { to: "/profile", label: "Profile" },
         { to: "/complaints", label: "Dashboard" },
-        { to: "/complaints?new=1", label: "New Complaint" },
+        { to: "/complaints?new=1", label: "New Complaint" }, // normal users only
       ];
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
-      {/* Blue gradient background */}
       <div className="bg-gradient-to-r from-[#2E7BEA] via-[#2B5FD6] to-[#1E3A8A] border-b border-white/10 shadow-sm">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 h-20">
           {/* Brand */}
@@ -102,7 +103,6 @@ export default function Navbar() {
 
           {/* Right section: session controls */}
           <div className="flex items-center gap-3">
-            {/* Landing (not authenticated) */}
             {!user && (
               <>
                 <Link
@@ -120,7 +120,6 @@ export default function Navbar() {
               </>
             )}
 
-            {/* Authenticated (user & admin): avatar + name + dropdown */}
             {user && (
               <div className="relative" ref={menuRef}>
                 <button
@@ -136,9 +135,7 @@ export default function Navbar() {
                   <span className="text-sm font-medium whitespace-nowrap">
                     {userName}
                   </span>
-                  <span className="text-lg leading-none translate-y-[1px]">
-                    ▾
-                  </span>
+                  <span className="text-lg leading-none translate-y-[1px]">▾</span>
                 </button>
 
                 {open && (
@@ -172,7 +169,6 @@ export default function Navbar() {
   );
 }
 
-/** Dropdown item */
 function DropItem({ to, label, onClick, activePath }) {
   const isActive = activePath === to;
   return (
@@ -180,9 +176,7 @@ function DropItem({ to, label, onClick, activePath }) {
       to={to}
       onClick={onClick}
       className={`block rounded-lg px-3 py-2 text-sm ${
-        isActive
-          ? "bg-gray-100 font-semibold text-gray-900"
-          : "text-gray-700 hover:bg-gray-50"
+        isActive ? "bg-gray-100 font-semibold text-gray-900" : "text-gray-700 hover:bg-gray-50"
       }`}
     >
       {label}
