@@ -5,8 +5,34 @@ import { useAuth } from "../context/AuthContext";
 import ComplaintForm from "../components/ComplaintForm";
 import EditComplaintModal from "../components/EditComplaintModal";
 import axiosInstance from "../axiosConfig";
-import { STATUS_OPTIONS, getAssigneeDisplay,normalizeStatus } from "../utils/complaints";
+import { STATUS_OPTIONS, getAssigneeDisplay, normalizeStatus } from "../utils/complaints";
 import ComplaintsTable from "../components/complaints/ComplaintsTable";
+
+/* helper: robust check if complaint is assigned to current user */
+function isAssignedToUser(c, user) {
+  if (!c || !user) return false;
+  const uid = String(user.id || user._id || user.userId || "");
+  const uemail = (user.email || "").toLowerCase();
+
+  const a = c.assignedTo;
+  const aid = String(
+    (a && (a._id || a.id || a.userId)) || (typeof a === "string" ? a : "")
+  );
+  const aemail =
+    (a && (a.email || a.userEmail)) ?
+      String(a.email || a.userEmail).toLowerCase() :
+      "";
+  const asPlainEmail =
+    typeof c.assignedTo === "string" && c.assignedTo.includes("@")
+      ? c.assignedTo.toLowerCase()
+      : "";
+
+  return (
+    (uid && aid && uid === aid) ||
+    (uemail && aemail && uemail === aemail) ||
+    (uemail && asPlainEmail && uemail === asPlainEmail)
+  );
+}
 
 /** ───────────────────────────── page ───────────────────────────── */
 export default function Complaints() {
@@ -57,26 +83,25 @@ export default function Complaints() {
   };
 
   const fetchComplaints = async () => {
-  if (!token) {
-    setComplaints([]);
-    setLoading(false);
-    return;
-  }
-  try {
-    setLoading(true);
-    setLoadError("");
+    if (!token) {
+      setComplaints([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      setLoadError("");
 
-    const res = await axiosInstance.get("/api/complaints", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setComplaints(res.data || []);
-  } catch {
-    setLoadError("Failed to load complaints.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+      const res = await axiosInstance.get("/api/complaints", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setComplaints(res.data || []);
+    } catch {
+      setLoadError("Failed to load complaints.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchComplaints();
@@ -85,13 +110,13 @@ export default function Complaints() {
   }, [token, searchParams.toString()]);
 
   const applyUpdate = (updated) => {
-    setComplaints(prev =>
-      prev.map(c =>
+    setComplaints((prev) =>
+      prev.map((c) =>
         c._id === updated._id
           ? {
               ...c,
               ...updated,
-              category:  updated.category  ?? c.category,
+              category: updated.category ?? c.category,
               createdBy: updated.createdBy ?? c.createdBy,
             }
           : c
@@ -118,9 +143,17 @@ export default function Complaints() {
     if (user.role === "admin") return true;
     const uid = user.id || user._id;
     const ownerId = c.createdBy?._id || c.createdBy;
+    const isOwner = uid && String(uid) === String(ownerId);
+    const assignedToMe = isAssignedToUser(c, user);
+    return Boolean(isOwner || assignedToMe);
+  };
+  const canDelete = (c) => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+    const uid = user.id || user._id;
+    const ownerId = c.createdBy?._id || c.createdBy;
     return String(uid) === String(ownerId);
   };
-  const canDelete = canEdit;
 
   const handleDelete = async (complaint) => {
     const ok = window.confirm(`Delete complaint "${complaint.reference}"?`);
@@ -138,6 +171,15 @@ export default function Complaints() {
     }
   };
 
+  /** list used for the stat cards:
+   *  - admin: all complaints
+   *  - user: only complaints assigned to them
+   */
+  const statsList = useMemo(
+    () => (isAdmin ? complaints : complaints.filter((c) => isAssignedToUser(c, user))),
+    [complaints, isAdmin, user]
+  );
+
   /** filtering & counts */
   const filtered = useMemo(() => {
     const text = q.trim().toLowerCase();
@@ -149,24 +191,32 @@ export default function Complaints() {
       const assigned = (getAssigneeDisplay(c) || "").toLowerCase();
 
       const matchesText =
-        !text || ref.includes(text) || desc.includes(text) || cat.includes(text) || status.includes(text) || assigned.includes(text);
+        !text ||
+        ref.includes(text) ||
+        desc.includes(text) ||
+        cat.includes(text) ||
+        status.includes(text) ||
+        assigned.includes(text);
 
       const statusOk =
         statusFilter === "all" ||
-        (statusFilter === "pending"    && status === "pending") ||
-        (statusFilter === "assigned"   && status === "assigned") ||
+        (statusFilter === "pending" && status === "pending") ||
+        (statusFilter === "assigned" && status === "assigned") ||
         (statusFilter === "inprogress" && status === "inprogress") ||
-        (statusFilter === "resolved"   && status === "resolved");
+        (statusFilter === "resolved" && status === "resolved");
+
+      // IMPORTANT: non-admins only see their assigned complaints
+      if (!isAdmin && !isAssignedToUser(c, user)) return false;
 
       return matchesText && statusOk;
     });
-  }, [complaints, q, statusFilter]);
+  }, [complaints, q, statusFilter, isAdmin, user]);
 
-  const countBy = (pred) => complaints.filter(pred).length;
-  const statPending  = countBy(c => normalizeStatus(c.status) === "Pending");
-  const statAssigned = countBy(c => normalizeStatus(c.status) === "Assigned");
-  const statProgress = countBy(c => normalizeStatus(c.status) === "In Progress");
-  const statResolved = countBy(c => normalizeStatus(c.status) === "Resolved");
+  const countBy = (list, pred) => list.filter(pred).length;
+  const statPending  = countBy(statsList, (c) => normalizeStatus(c.status) === "Pending");
+  const statAssigned = countBy(statsList, (c) => normalizeStatus(c.status) === "Assigned");
+  const statProgress = countBy(statsList, (c) => normalizeStatus(c.status) === "In Progress");
+  const statResolved = countBy(statsList, (c) => normalizeStatus(c.status) === "Resolved");
 
   const headerCols = showUserCol ? "grid-cols-7" : "grid-cols-6";
 
@@ -264,7 +314,6 @@ export default function Complaints() {
       </div>
 
       {/* Table Card */}
-      
       <ComplaintsTable
         complaints={complaints}
         filteredComplaints={filtered}
