@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import axiosInstance from "../axiosConfig";
 
-// image 
+// image
 import loginImg from "../assets/other_images/LoginImage.png";
 
 // icons
@@ -24,7 +24,7 @@ const EyeIcon = () => (
 );
 const EyeOffIcon = () => (
   <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" aria-hidden="true">
-    <path fill="currentColor" d="M2.1 3.51 20.49 21.9l-1.41 1.41-2.29-2.29A12.91 12.91 0 0 1 12 19C7 19 2.73 15.89 1 12c.68-1.53 1.76-2.94 3.08-4.12L.69 4.92 2.1 3.51ZM12 7a5 5 0 0 1 5 5c0 .63-.12 1.22-.34 1.77L13.23 10.3A2.98 2.98 0 0 0 12 10a3 3 0 0 0-3 3c0 .44.1.86.28 1.23l-1.5-1.5A4.98 4.98 0 0 1 12 7Z"/>
+    <path fill="currentColor" d="M2.1 3.51 20.49 21.9l-1.41 1.41-2.29-2.29A12.91 12.91 0 0 1 12 19C7 19 2.73 15.89 1 12c.68-1.53 1.76-2.94 3.08-4.12L.69 4.92 2.1 3.51ZM12 7a5 5 0 0 1 5 5c0 .63-.12 1.22-.34 1.77L13.23 10.3A2.98 2.98 0 0 0 12 10a3 3 0 0 0-3 3c0 .44.1 .86 .28 1.23l-1.5-1.5A4.98 4.98 0 0 1 12 7Z"/>
   </svg>
 );
 
@@ -53,9 +53,27 @@ const Login = () => {
     <div className="min-h-screen w-full bg-slate-100 flex items-center justify-center p-4">
       {/* card: left image + right form */}
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 rounded-3xl bg-white shadow-xl overflow-hidden">
-        {/* left */}
-        <div className="relative hidden lg:flex items-center justify-center bg-gradient-to-b from-blue-700 to-blue-900">
-          <img src={loginImg} alt="Login illustration" className="object-contain max-h-[520px] w-auto" />
+        {/* left (gradient + soft waves like the illustration) */}
+        <div className="relative hidden lg:flex items-center justify-center">
+          {/* base gradient */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#1F5BAA] to-[#0F3C7A]" />
+          {/* subtle waves */}
+          <svg
+            className="absolute inset-0 w-full h-full opacity-35"
+            viewBox="0 0 1440 1024"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path d="M0,740 C180,690 300,640 520,680 C740,720 860,810 1080,800 C1260,792 1380,750 1440,730 L1440,1024 L0,1024 Z" fill="#1B4E99"/>
+            <path d="M0,840 C220,800 360,760 560,780 C820,806 960,900 1200,880 C1320,870 1400,850 1440,840 L1440,1024 L0,1024 Z" fill="#1A468C"/>
+            <path d="M0,920 C200,900 340,880 520,900 C700,920 880,980 1080,970 C1260,960 1380,940 1440,930 L1440,1024 L0,1024 Z" fill="#163B66"/>
+          </svg>
+          {/* illustration */}
+          <img
+            src={loginImg}
+            alt="Login illustration"
+            className="relative z-10 object-contain max-h-[520px] w-auto"
+          />
         </div>
 
         {/* right */}
@@ -149,6 +167,5 @@ const Login = () => {
     </div>
   );
 };
-
 
 export default Login;

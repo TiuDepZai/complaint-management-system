@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// Avatares (admin vs user)
+// Avatars (admin vs user)
 import userImg from "../assets/other_images/howitoworks.png";
 import adminImg from "../assets/other_images/LoginImage.png";
 
@@ -19,7 +19,7 @@ export default function Navbar() {
   const avatarSrc = isAdmin ? adminImg : userImg;
   const userName = user?.name || user?.fullName || user?.username || "User";
 
-  // cerrar dropdown al hacer click fuera
+  // Close dropdown on outside click
   useEffect(() => {
     const onClick = (e) => {
       if (!menuRef.current) return;
@@ -34,7 +34,7 @@ export default function Navbar() {
     navigate("/login");
   };
 
-  // ---------- LINKS DE NAV (centro) ----------
+  // Center nav links (landing)
   const landingLinks = useMemo(
     () => [
       { label: "Home", to: "/" },
@@ -44,7 +44,7 @@ export default function Navbar() {
     []
   );
 
-  // Admin mantiene sus opciones del centro
+  // Center nav links (admin)
   const adminLinks = useMemo(
     () => [
       { label: "Home", to: "/" },
@@ -54,7 +54,7 @@ export default function Navbar() {
     []
   );
 
-  // User (no admin) usa el mismo set que landing (sin Contact)
+  // Center nav links (authenticated non-admin)
   const userLinks = landingLinks;
 
   const links = !user ? landingLinks : isAdmin ? adminLinks : userLinks;
@@ -66,30 +66,30 @@ export default function Navbar() {
         : "text-white/90 hover:text-white"
     }`;
 
-  // ---------- ITEMS DEL DROPDOWN ----------
-// Items del dropdown según rol
-const dropdownItems = isAdmin
-  ? [
-      { to: "/profile", label: "Profile" },
-      { to: "/complaints?all=1", label: "Dashboard" }, // admin → View All Complaints
-      { to: "/categories", label: "Categories" },
-    ]
-  : [
-      { to: "/profile", label: "Profile" },
-      { to: "/complaints", label: "Dashboard" },       // user → View Complaints
-      { to: "/complaints?new=1", label: "New Complaint" } // user → Register Complaint
-    ];
+  // Dropdown items by role
+  const dropdownItems = isAdmin
+    ? [
+        { to: "/profile", label: "Profile" },
+        { to: "/complaints?all=1", label: "Dashboard" },
+        { to: "/categories", label: "Categories" },
+      ]
+    : [
+        { to: "/profile", label: "Profile" },
+        { to: "/complaints", label: "Dashboard" },
+        { to: "/complaints?new=1", label: "New Complaint" },
+      ];
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
-      <div className="bg-[#7289da]/60 backdrop-blur-md border-b border-white/10">
+      {/* Blue gradient background */}
+      <div className="bg-gradient-to-r from-[#2E7BEA] via-[#2B5FD6] to-[#1E3A8A] border-b border-white/10 shadow-sm">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 h-20">
-          {/* Logo / Brand */}
+          {/* Brand */}
           <Link to="/" className="text-2xl font-bold tracking-tight text-white">
             ComplaintHub
           </Link>
 
-          {/* Centro: links */}
+          {/* Center links */}
           <ul className="hidden md:flex gap-6">
             {links.map((l) => (
               <li key={l.to}>
@@ -100,9 +100,9 @@ const dropdownItems = isAdmin
             ))}
           </ul>
 
-          {/* Derecha: sesión */}
+          {/* Right section: session controls */}
           <div className="flex items-center gap-3">
-            {/* LANDING (no logueado) */}
+            {/* Landing (not authenticated) */}
             {!user && (
               <>
                 <Link
@@ -120,7 +120,7 @@ const dropdownItems = isAdmin
               </>
             )}
 
-            {/* USER & ADMIN: pill con avatar + nombre + dropdown */}
+            {/* Authenticated (user & admin): avatar + name + dropdown */}
             {user && (
               <div className="relative" ref={menuRef}>
                 <button
@@ -172,7 +172,7 @@ const dropdownItems = isAdmin
   );
 }
 
-/** Item del dropdown */
+/** Dropdown item */
 function DropItem({ to, label, onClick, activePath }) {
   const isActive = activePath === to;
   return (
