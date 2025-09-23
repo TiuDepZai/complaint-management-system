@@ -27,7 +27,7 @@ export default function ComplaintsTable({
     <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
       {/* Header */}
       <div
-        className={`grid ${headerCols} items-center border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700`}
+        className={`grid ${headerCols} gap-x-4 items-center border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700`}
       >
         {showUserCol && <div>User</div>}
         <div>Reference</div>
@@ -45,7 +45,7 @@ export default function ComplaintsTable({
         filteredComplaints.map((c) => (
           <div
             key={c._id}
-            className={`grid ${headerCols} items-center border-b px-4 py-3 text-sm hover:bg-gray-50`}
+            className={`grid ${headerCols} gap-x-4 items-center border-b px-4 py-3 text-sm hover:bg-gray-50`}
           >
             {showUserCol && (
               <div title={c.createdBy?.email}>
@@ -53,8 +53,8 @@ export default function ComplaintsTable({
               </div>
             )}
 
-            <div className="font-mono">{c.reference}</div>
-            <div>{c.category?.name || "-"}</div>
+            <div className="font-mono min-w-0 truncate">{c.reference}</div>
+            <div className="min-w-0 truncate">{c.category?.name || "-"}</div>
 
             <StatusCell
               isAdmin={isAdmin}
