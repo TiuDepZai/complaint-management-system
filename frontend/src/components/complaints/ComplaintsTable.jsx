@@ -1,5 +1,7 @@
+import { useState } from "react";
 import React from "react";
 import { StatusCell, AssigneeCell, PriorityPill } from "./index";
+import TimelineBar from "../complaints/TimeLineBar";
 
 export default function ComplaintsTable({
   complaints,
@@ -11,17 +13,28 @@ export default function ComplaintsTable({
   canEdit,
   canDelete,
   onUpdated,
+  canTimeline,
   onDelete,
   onEdit,
-  deletingId
+  deletingId,
 }) {
   const isAdmin = user?.role === "admin";
   const isStaff = user?.role === "staff";
 
+  const [expandedId, setExpandedId] = useState(null);
+
   // grid columns: drop the Action column entirely for staff
   const headerCols = showUserCol
-    ? (isStaff ? "grid-cols-6" : "grid-cols-7")
-    : (isStaff ? "grid-cols-5" : "grid-cols-6");
+    ? isStaff
+      ? "grid-cols-6"
+      : "grid-cols-7"
+    : isStaff
+    ? "grid-cols-5"
+    : "grid-cols-6";
+
+  const toggleExpand = (id) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -40,46 +53,48 @@ export default function ComplaintsTable({
 
       {/* Body */}
       {filteredComplaints.length === 0 ? (
-        <div className="px-4 py-8 text-center text-gray-500">No complaints found.</div>
+        <div className="px-4 py-8 text-center text-gray-500">
+          No complaints found.
+        </div>
       ) : (
         filteredComplaints.map((c) => (
-          <div
-            key={c._id}
-            className={`grid ${headerCols} gap-x-4 items-center border-b px-4 py-3 text-sm hover:bg-gray-50`}
-          >
-            {showUserCol && (
-              <div title={c.createdBy?.email}>
-                {c.createdBy?.name || c.createdBy?.email || "-"}
+          <React.Fragment key={c._id}>
+            <div
+              className={`grid ${headerCols} gap-x-4 items-center border-b px-4 py-3 text-sm hover:bg-gray-50`}
+            >
+              {showUserCol && (
+                <div title={c.createdBy?.email}>
+                  {c.createdBy?.name || c.createdBy?.email || "-"}
+                </div>
+              )}
+
+              <div className="font-mono min-w-0 truncate">{c.reference}</div>
+              <div className="min-w-0 truncate">{c.category?.name || "-"}</div>
+
+              <StatusCell
+                isAdmin={isAdmin}
+                complaint={c}
+                user={user}
+                token={token}
+                onUpdated={onUpdated}
+              />
+
+              <AssigneeCell
+                complaint={c}
+                isAdmin={isAdmin}
+                token={token}
+                onUpdated={onUpdated}
+                staffOptions={staffOptions}
+              />
+
+              <div className="justify-self-start ml-4">
+                <PriorityPill value={c.priority} />
               </div>
-            )}
 
-            <div className="font-mono min-w-0 truncate">{c.reference}</div>
-            <div className="min-w-0 truncate">{c.category?.name || "-"}</div>
-
-            <StatusCell
-              isAdmin={isAdmin}
-              complaint={c}
-              user={user}
-              token={token}
-              onUpdated={onUpdated}
-            />
-
-            <AssigneeCell
-              complaint={c}
-              isAdmin={isAdmin}
-              token={token}
-              onUpdated={onUpdated}
-              staffOptions={staffOptions}
-            />
-
-            <div className="justify-self-start ml-4">
-              <PriorityPill value={c.priority} />
-            </div>
-
-            {/* Hide the entire Action cell for staff */}
-            {!isStaff && (
-              <div className="flex items-center gap-2">
-                {canEdit(c) && (
+              {/* Hide the entire Action cell for staff */}
+              {!isStaff && (
+                <div className="flex items-center gap-2">
+                  {canEdit(c) && (
                   <button
                     type="button"
                     onClick={() => onEdit?.(c)}
@@ -129,9 +144,28 @@ export default function ComplaintsTable({
                     </svg>
                   </button>
                 )}
+
+
+                  {/* Expand / Collapse */}
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(c._id)}
+                    className="rounded p-2 hover:bg-gray-100"
+                    aria-label="Expand details"
+                  >
+                    {expandedId === c._id ? "▲" : "▼"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Expanded row */}
+            {expandedId === c._id && (
+              <div className="bg-gray-50 border-b px-6 py-4 text-sm text-gray-700">
+                <TimelineBar complaint={c} />
               </div>
             )}
-          </div>
+          </React.Fragment>
         ))
       )}
     </div>
