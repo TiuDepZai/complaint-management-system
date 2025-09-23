@@ -7,7 +7,6 @@ export const normalizeStatus = (raw) => {
   if (k === "assigned")   return "Assigned";
   if (k === "inprogress") return "In Progress";
   if (k === "resolved")   return "Resolved";
-  if (k === "closed")     return "Resolved";
   return raw;
 };
 

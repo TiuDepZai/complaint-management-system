@@ -319,7 +319,7 @@ export default function Complaints() {
             <option value="all">All</option>
             <option value="pending">Pending</option>
             <option value="assigned">Assigned</option>
-            <option value="inprogress">In progress</option>
+            <option value="inprogress">In Progress</option>
             <option value="resolved">Resolved</option>
           </select>
         </div>

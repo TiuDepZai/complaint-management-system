@@ -94,7 +94,7 @@ class ComplaintEntity {
       ? complaint.assignedTo.equals(user._id)
       : String(complaint.assignedTo || "") === String(user._id);
 
-    const allowedStatuses = ['Assigned', 'In Progress', 'Resolved', 'Closed'];
+    const allowedStatuses = ['Assigned', 'In Progress', 'Resolved'];
 
     if (user.role === 'staff') {
       // STAFF: only status updates, only if assigned to them
@@ -142,7 +142,6 @@ class ComplaintEntity {
 
     await complaint.save();
 
-    // Always return fully-populated doc (fixes "Not assigned yet" flash on FE)
     await complaint.populate([
       { path: 'assignedTo', select: 'name email role' },
       { path: 'category',   select: 'name status' },
