@@ -238,6 +238,65 @@ export function AssigneeCell({ complaint, isAdmin, token, onUpdated, staffOption
   );
 }
 
+// export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
+//   const status = normalizeStatus(complaint.status);
+//   const [saving, setSaving] = useState(false);
+
+//   // Admin: read-only (pill)
+//   if (isAdmin) {
+//     return (
+//       <div className="justify-self-start">
+//         <StatusPill value={status} />
+//       </div>
+//     );
+//   }
+
+//   // Staff: may change status ONLY if this complaint is assigned to them
+//   const isStaff = user?.role === "staff";
+//   const canStaffEdit = isStaff && isAssignedToUser(complaint, user);
+
+//   const handleChange = async (e) => {
+//     try {
+//       setSaving(true);
+//       const next = e.target.value;
+//       const res = await axiosInstance.put(
+//         `/api/complaints/${complaint._id}`,
+//         { status: next },
+//         { headers: { Authorization: `Bearer ${token}` } }
+//       );
+//       onUpdated(res.data);
+//     } finally {
+//       setSaving(false);
+//     }
+//   };
+
+//   // Staff can change among these (no "Pending" unless re-open logic is allowed)
+//   const STAFF_STATUS_OPTIONS = ["Assigned", "In Progress", "Resolved"];
+
+//   if (canStaffEdit) {
+//     return (
+//       <select
+//         value={status}
+//         onChange={handleChange}
+//         disabled={saving}
+//         className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm"
+//         title="Change status"
+//       >
+//         {STAFF_STATUS_OPTIONS.map((s) => (
+//           <option key={s} value={s}>{s}</option>
+//         ))}
+//       </select>
+//     );
+//   }
+
+//   // Regular users & staff on others' complaints: read-only pill
+//   return (
+//     <div className="justify-self-start">
+//       <StatusPill value={status} />
+//     </div>
+//   );
+// }
+
 export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
   const status = normalizeStatus(complaint.status);
   const [saving, setSaving] = useState(false);
@@ -251,7 +310,7 @@ export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
     );
   }
 
-  // Staff: may change status ONLY if this complaint is assigned to them
+  // Staff: can change ONLY if assigned to them
   const isStaff = user?.role === "staff";
   const canStaffEdit = isStaff && isAssignedToUser(complaint, user);
 
@@ -270,8 +329,7 @@ export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
     }
   };
 
-  // Staff can change among these (no "Pending" unless re-open logic is allowed)
-  const STAFF_STATUS_OPTIONS = ["Assigned", "In Progress", "Resolved"];
+  const STAFF_STATUS_OPTIONS = ["Assigned", "In Progress", "Resolved", "Closed"];
 
   if (canStaffEdit) {
     return (
@@ -289,10 +347,11 @@ export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
     );
   }
 
-  // Regular users & staff on others' complaints: read-only pill
+  // users and staff on others' complaints: read-only
   return (
     <div className="justify-self-start">
       <StatusPill value={status} />
     </div>
   );
 }
+
