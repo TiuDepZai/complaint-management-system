@@ -118,6 +118,7 @@ export default function Complaints() {
               ...updated,
               category: updated.category ?? c.category,
               createdBy: updated.createdBy ?? c.createdBy,
+              assignedTo: updated.assignedTo ?? c.assignedTo,
             }
           : c
       )
