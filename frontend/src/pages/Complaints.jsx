@@ -159,6 +159,14 @@ export default function Complaints() {
     return String(uid) === String(ownerId);
   };
 
+  const canTimeline = (c) => {
+    if (!user) return false;
+    if (user.role === "admin" ) return true;
+    const uid = user.id || user._id;
+    const ownerId = c.createdBy?._id || c.createdBy;
+    return String(uid) === String(ownerId);
+  }
+
   const handleDelete = async (complaint) => {
     const ok = window.confirm(`Delete complaint "${complaint.reference}"?`);
     if (!ok) return;
@@ -349,6 +357,7 @@ export default function Complaints() {
         showUserCol={showUserCol}
         canEdit={canEdit}
         onEdit={setEditingComplaint}
+        canTimeline={canTimeline}
         canDelete={canDelete}
         onUpdated={applyUpdate}
         onDelete={handleDelete}
