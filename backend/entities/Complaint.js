@@ -94,7 +94,7 @@ class ComplaintEntity {
       ? complaint.assignedTo.equals(user._id)
       : String(complaint.assignedTo || "") === String(user._id);
 
-    const staffAllowed = ['In Progress', 'Resolved']; // staff can only move forward
+    const staffAllowed = ['Assigned','In Progress', 'Resolved']; // staff can only move forward
     const allAllowed   = ['Pending', 'Assigned', 'In Progress', 'Resolved'];
 
     const stampDatesIfNeeded = (prevStatus, nextStatus) => {

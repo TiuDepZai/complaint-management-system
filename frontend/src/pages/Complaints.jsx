@@ -42,6 +42,13 @@ export default function Complaints() {
 
   const [open, setOpen] = useState(false);
   const [pageSuccess, setPageSuccess] = useState("");
+  const [pageError, setPageError] = useState("");
+
+  const showError = (msg) => {
+    setPageError(msg || "Something went wrong.");
+    // auto-hide after a few seconds (optional)
+    setTimeout(() => setPageError(""), 4000);
+  };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -271,7 +278,23 @@ export default function Complaints() {
           </div>
         ))}
       </div>
-
+      {/* Error banner */}
+      {pageError && (
+        <div
+          className="mb-4 flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-2 text-red-800"
+          role="alert"
+          aria-live="assertive"
+        >
+          <span>{pageError}</span>
+          <button
+            onClick={() => setPageError("")}
+            className="text-red-700 hover:text-red-900"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Success banner */}
       {pageSuccess && (
         <div
@@ -355,6 +378,7 @@ export default function Complaints() {
         token={token}
         staffOptions={staffOptions}
         showUserCol={showUserCol}
+        onError={showError}
         canEdit={canEdit}
         onEdit={setEditingComplaint}
         canTimeline={canTimeline}
