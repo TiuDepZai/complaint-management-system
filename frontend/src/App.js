@@ -1,5 +1,7 @@
+// src/App.js
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer'; // ← added
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
@@ -12,7 +14,7 @@ function App() {
     <Router>
       <Navbar />
 
-      {/* Spacer: empuja todo el contenido hacia abajo */}
+      {/* Spacer: push content below fixed navbar */}
       <div className="h-18 md:h-20" />
 
       <Routes>
@@ -23,8 +25,11 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/complaints" element={<Complaints />} />
       </Routes>
+
+      <Footer /> {/* ← renders on every page */}
     </Router>
   );
 }
 
 export default App;
+
