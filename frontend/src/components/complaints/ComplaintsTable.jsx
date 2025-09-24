@@ -48,7 +48,7 @@ export default function ComplaintsTable({
         <div>Status</div>
         <div>Assigned To</div>
         <div className="pl-4">Priority</div>
-        {!isStaff && <div>Action</div>}
+        {!isStaff && <div>Actions</div>}
       </div>
 
       {/* Body */}
