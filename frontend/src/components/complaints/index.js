@@ -113,7 +113,7 @@ export function AssigneeCell({ complaint, isAdmin, token, onUpdated, staffOption
   );
 }
 
-export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
+export function StatusCell({ isAdmin, complaint, user, token, onUpdated, onError }) {
   const status = normalizeStatus(complaint.status);
   const [saving, setSaving] = useState(false);
 
@@ -131,6 +131,7 @@ export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
   const canStaffEdit = isStaff && isAssignedToUser(complaint, user);
 
   const handleChange = async (e) => {
+    const prev = status;
     try {
       setSaving(true);
       const next = e.target.value;
@@ -140,7 +141,13 @@ export function StatusCell({ isAdmin, complaint, user, token, onUpdated }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       onUpdated(res.data);
-    } finally {
+    } catch (err) {
+     // show red alert banner and revert select UI
+      onError?.(err?.response?.data?.message || err?.message || "Failed to update status");
+      try 
+        { e.target.value = prev; } 
+        catch {}
+     } finally {
       setSaving(false);
     }
   };

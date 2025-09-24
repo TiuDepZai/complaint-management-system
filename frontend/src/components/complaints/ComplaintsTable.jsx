@@ -17,6 +17,7 @@ export default function ComplaintsTable({
   onDelete,
   onEdit,
   deletingId,
+  onError
 }) {
   const isAdmin = user?.role === "admin";
   const isStaff = user?.role === "staff";
@@ -77,6 +78,7 @@ export default function ComplaintsTable({
                 user={user}
                 token={token}
                 onUpdated={onUpdated}
+                onError={onError}
               />
 
               <AssigneeCell
