@@ -94,22 +94,51 @@ class ComplaintEntity {
       ? complaint.assignedTo.equals(user._id)
       : String(complaint.assignedTo || "") === String(user._id);
 
-    const allowedStatuses = ['Assigned', 'In Progress', 'Resolved'];
+    const staffAllowed = ['In Progress', 'Resolved']; // staff can only move forward
+    const allAllowed   = ['Pending', 'Assigned', 'In Progress', 'Resolved'];
+
+    const stampDatesIfNeeded = (prevStatus, nextStatus) => {
+      if (!nextStatus || nextStatus === prevStatus) return;
+      if (nextStatus === 'In Progress' && !complaint.inProgressDate) {
+        complaint.inProgressDate = new Date();
+      }
+      if (nextStatus === 'Resolved' && !complaint.resolvedDate) {
+        complaint.resolvedDate = new Date();
+      }
+    };
+
+    const prevStatus = complaint.status;
 
     if (user.role === 'staff') {
-      // STAFF: only status updates, only if assigned to them
+      // must be assigned to this staff member
       if (!isAssignedToUser) {
         throw new Error('Not authorized to update this complaint');
       }
       if (data.status === undefined) {
         throw new Error('Only status updates are allowed for staff');
       }
-      if (!allowedStatuses.includes(data.status)) {
+      const next = data.status;
+
+      if (!staffAllowed.includes(next)) {
         throw new Error('Invalid status');
       }
-      complaint.status = data.status;
+
+      // enforce forward-only flow for staff
+      if (prevStatus === 'Assigned' && next !== 'In Progress') {
+        throw new Error('Move to "In Progress" first');
+      }
+      if (prevStatus === 'In Progress' && next !== 'Resolved') {
+        throw new Error('Only allowed to move to "Resolved" from "In Progress"');
+      }
+      if (prevStatus === 'Resolved') {
+        throw new Error('Resolved complaints cannot be updated by staff');
+      }
+
+      complaint.status = next;
+      stampDatesIfNeeded(prevStatus, next);
+
     } else {
-      // ADMIN or CREATOR
+      // ADMIN or CREATOR (UI already prevents admin from editing status, but keep server rules sane)
       if (user.role !== 'admin' && !isOwner) {
         throw new Error('Not authorized to update this complaint');
       }
@@ -125,14 +154,14 @@ class ComplaintEntity {
         if (!cat) throw new Error('Invalid or inactive category');
       }
 
-      // Apply allowed fields (intentionally excluding 'assignedTo' here;
-      // use the dedicated assign endpoint for that)
       const updatableFields = ['subject', 'description', 'category', 'priority', 'status'];
       for (const field of updatableFields) {
         if (data[field] !== undefined) {
           if (field === 'status') {
-            // allow any string (admin/creator), default back to Pending if falsy
-            complaint.status = data.status || 'Pending';
+            if (!allAllowed.includes(data.status)) throw new Error('Invalid status');
+            const next = data.status || 'Pending';
+            complaint.status = next;
+            stampDatesIfNeeded(prevStatus, next);
           } else {
             complaint[field] = data[field];
           }
@@ -142,6 +171,7 @@ class ComplaintEntity {
 
     await complaint.save();
 
+    // always return fully populated doc so FE row doesn't flicker
     await complaint.populate([
       { path: 'assignedTo', select: 'name email role' },
       { path: 'category',   select: 'name status' },
@@ -150,6 +180,7 @@ class ComplaintEntity {
 
     return complaint;
   }
+
 
   static async remove(id, user){
     if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid complaint ID');
