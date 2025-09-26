@@ -7,7 +7,6 @@ class AdminEntity {
       throw new Error(`User with ID ${userId} not found`);
     }
 
-    console.log(`Admin ${actingAdmin.name} deleted user: ${user.name}`);
     await user.deleteOne();
   }
 
@@ -26,7 +25,6 @@ class AdminEntity {
 
     await staff.save();
 
-    console.log(`Admin ${actingAdmin.name} created new staff: ${staff.name}`);
     return staff;
   }
 

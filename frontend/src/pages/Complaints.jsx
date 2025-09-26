@@ -1,73 +1,110 @@
-import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import ComplaintForm from '../components/ComplaintForm';
-import EditComplaintModal from '../components/EditComplaintModal';
-import axiosInstance from '../axiosConfig';
+// src/pages/Complaints.jsx
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import ComplaintForm from "../components/ComplaintForm";
+import EditComplaintModal from "../components/EditComplaintModal";
+import axiosInstance from "../axiosConfig";
+import { STATUS_OPTIONS, getAssigneeDisplay, normalizeStatus } from "../utils/complaints";
+import ComplaintsTable from "../components/complaints/ComplaintsTable";
 
+/* helper: robust check if complaint is assigned to current user */
+function isAssignedToUser(c, user) {
+  if (!c || !user) return false;
+  const uid = String(user.id || user._id || user.userId || "");
+  const uemail = (user.email || "").toLowerCase();
+
+  const a = c.assignedTo;
+  const aid = String(
+    (a && (a._id || a.id || a.userId)) || (typeof a === "string" ? a : "")
+  );
+  const aemail =
+    (a && (a.email || a.userEmail))
+      ? String(a.email || a.userEmail).toLowerCase()
+      : "";
+  const asPlainEmail =
+    typeof c.assignedTo === "string" && c.assignedTo.includes("@")
+      ? c.assignedTo.toLowerCase()
+      : "";
+
+  return (
+    (uid && aid && uid === aid) ||
+    (uemail && aemail && uemail === aemail) ||
+    (uemail && asPlainEmail && uemail === asPlainEmail)
+  );
+}
+
+/** ───────────────────────────── page ───────────────────────────── */
 export default function Complaints() {
   const { user } = useAuth();
-  const [search, setSearch] = useSearchParams();
+  const token = user?.token;
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [open, setOpen] = useState(false);
+  const [pageSuccess, setPageSuccess] = useState("");
+  const [pageError, setPageError] = useState("");
 
-  const [pageSuccess, setPageSuccess] = useState('');
-  const [complaints, setComplaints] = useState([]);
+  const showError = (msg) => {
+    setPageError(msg || "Something went wrong.");
+    // auto-hide after a few seconds (optional)
+    setTimeout(() => setPageError(""), 4000);
+  };
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const [loadError, setLoadError] = useState("");
 
+  const [complaints, setComplaints] = useState([]);
   const [editingComplaint, setEditingComplaint] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
-  const isAdmin = user?.role === 'admin';
-  const showUserCol = isAdmin && search.get('all') === '1';
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  const PriorityBadge = ({ value }) => {
-    const cls =
-      value === 'Urgent'
-        ? 'bg-red-100 text-red-800 border-red-200'
-        : value === 'High'
-        ? 'bg-orange-100 text-orange-800 border-orange-200'
-        : value === 'Medium'
-        ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-        : 'bg-green-100 text-green-800 border-green-200';
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-        {value}
-      </span>
-    );
+  const isAdmin = user?.role === "admin";
+  const showUserCol = isAdmin && searchParams.get("all") === "1";
+
+  /** staff fetched from backend */
+  const [staffOptions, setStaffOptions] = useState([]);
+  const fetchStaff = async () => {
+    if (!token || !isAdmin) return setStaffOptions([]);
+    try {
+      const res = await axiosInstance.get("/api/admin/staff", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStaffOptions(res.data || []);
+    } catch {
+      setStaffOptions([]);
+    }
   };
 
   useEffect(() => {
-    if (search.get('new') === '1' && user?.token) setOpen(true);
-  }, [search, user?.token]);
+    if (searchParams.get("new") === "1" && token) setOpen(true);
+  }, [searchParams, token]);
 
   const closeForm = () => {
     setOpen(false);
-    if (search.get('new')) {
-      search.delete('new');
-      setSearch(search, { replace: true });
+    if (searchParams.get("new")) {
+      const sp = new URLSearchParams(searchParams);
+      sp.delete("new");
+      setSearchParams(sp, { replace: true });
     }
   };
 
   const fetchComplaints = async () => {
-    if (!user?.token) {
+    if (!token) {
       setComplaints([]);
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      setLoadError('');
+      setLoadError("");
 
-      const wantAll = search.get('all') === '1';
-      const qs = isAdmin && wantAll ? '?all=1' : '';
-
-      const res = await axiosInstance.get(`/api/complaints${qs}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
+      const res = await axiosInstance.get("/api/complaints", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       setComplaints(res.data || []);
-    } catch (e) {
-      setLoadError('Failed to load complaints.');
+    } catch {
+      setLoadError("Failed to load complaints.");
     } finally {
       setLoading(false);
     }
@@ -75,80 +112,199 @@ export default function Complaints() {
 
   useEffect(() => {
     fetchComplaints();
+    fetchStaff();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.token, search.toString()]);
+  }, [token, searchParams.toString()]);
+
+  const applyUpdate = (updated) => {
+    setComplaints((prev) =>
+      prev.map((c) =>
+        c._id === updated._id
+          ? {
+              ...c,
+              ...updated,
+              category: updated.category ?? c.category,
+              createdBy: updated.createdBy ?? c.createdBy,
+              assignedTo: updated.assignedTo ?? c.assignedTo,
+            }
+          : c
+      )
+    );
+  };
 
   const handleSubmitted = async (created) => {
     closeForm();
     setPageSuccess(`Complaint submitted successfully! Reference: ${created.reference}`);
-    setTimeout(() => setPageSuccess(''), 4000);
+    setTimeout(() => setPageSuccess(""), 4000);
     await fetchComplaints();
   };
 
   const handleUpdated = async (updated) => {
     setEditingComplaint(null);
-    setComplaints((prev) => prev.map((c) => (c._id === updated._id ? updated : c)));
-    setPageSuccess('Complaint updated successfully!');
-    setTimeout(() => setPageSuccess(''), 3000);
+    applyUpdate(updated);
+    setPageSuccess("Complaint updated successfully!");
+    setTimeout(() => setPageSuccess(""), 3000);
   };
 
   const canEdit = (c) => {
+  if (!user) return false;
+  if (user.role === "staff") return false;   // <- disallow staff edits
+  if (user.role === "admin") return true;
+
+  const uid = user.id || user._id;
+  const ownerId = c.createdBy?._id || c.createdBy;
+  const isOwner = uid && String(uid) === String(ownerId);
+  const assignedToMe = isAssignedToUser(c, user);
+  return Boolean(isOwner || assignedToMe);
+};
+
+  const canDelete = (c) => {
     if (!user) return false;
-    if (user.role === 'admin') return true;
+    if (user.role === "admin") return true;
     const uid = user.id || user._id;
     const ownerId = c.createdBy?._id || c.createdBy;
     return String(uid) === String(ownerId);
   };
-  const canDelete = canEdit; // same rule: owner or admin
+
+  const canTimeline = (c) => {
+    if (!user) return false;
+    if (user.role === "admin" ) return true;
+    const uid = user.id || user._id;
+    const ownerId = c.createdBy?._id || c.createdBy;
+    return String(uid) === String(ownerId);
+  }
 
   const handleDelete = async (complaint) => {
-    const ok = window.confirm(`Are you sure you want to delete complaint "${complaint.reference}"?`);
+    const ok = window.confirm(`Delete complaint "${complaint.reference}"?`);
     if (!ok) return;
-
     try {
       setDeletingId(complaint._id);
       await axiosInstance.delete(`/api/complaints/${complaint._id}`, {
-        headers: { Authorization: `Bearer ${user?.token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       setComplaints((prev) => prev.filter((c) => c._id !== complaint._id));
-      setPageSuccess('Complaint deleted successfully!');
-      setTimeout(() => setPageSuccess(''), 3000);
-    } catch (err) {
-      console.error('Failed to delete complaint', err?.response?.data || err?.message);
+      setPageSuccess("Complaint deleted successfully!");
+      setTimeout(() => setPageSuccess(""), 3000);
     } finally {
       setDeletingId(null);
     }
   };
 
-  const headerCols = showUserCol ? 'grid-cols-6' : 'grid-cols-5';
+  /** list used for the stat cards:
+   *  - admin: all complaints
+   *  - non-admin: complaints owned by the user OR assigned to them
+   */
+  const statsList = useMemo(() => {
+    if (isAdmin) return complaints;
+
+    const uid = String(user?.id || user?._id || "");
+    return complaints.filter((c) => {
+      const ownerId = String(c?.createdBy?._id || c?.createdBy || "");
+      const isOwner = uid && ownerId && uid === ownerId;
+      return isOwner || isAssignedToUser(c, user);
+    });
+  }, [complaints, isAdmin, user]);
+
+  /** filtering & counts */
+  const filtered = useMemo(() => {
+    const text = q.trim().toLowerCase();
+    const uid = String(user?.id || user?._id || "");
+
+    return complaints.filter((c) => {
+      const ref = (c?.reference ?? "").toLowerCase();
+      const desc = (c?.description ?? "").toLowerCase();
+      const cat = (c?.category?.name ?? "").toLowerCase();
+      const status = normalizeStatus(c?.status ?? "").toLowerCase(); // "in progress" etc.
+      const assigned = (getAssigneeDisplay(c) || "").toLowerCase();
+
+      const matchesText =
+        !text ||
+        ref.includes(text) ||
+        desc.includes(text) ||
+        cat.includes(text) ||
+        status.includes(text) ||
+        assigned.includes(text);
+
+      const statusOk =
+        statusFilter === "all" ||
+        (statusFilter === "pending" && status === "pending") ||
+        (statusFilter === "assigned" && status === "assigned") ||
+        (statusFilter === "inprogress" && status === "in progress") ||
+        (statusFilter === "resolved" && status === "resolved");
+
+      // non-admins see complaints they own OR are assigned to
+      if (!isAdmin) {
+        const ownerId = String(c?.createdBy?._id || c?.createdBy || "");
+        const isOwner = uid && ownerId && uid === ownerId;
+        if (!isOwner && !isAssignedToUser(c, user)) return false;
+      }
+
+      return matchesText && statusOk;
+    });
+  }, [complaints, q, statusFilter, isAdmin, user]);
+
+  const countBy = (list, pred) => list.filter(pred).length;
+  const statPending  = countBy(statsList, (c) => normalizeStatus(c.status) === "Pending");
+  const statAssigned = countBy(statsList, (c) => normalizeStatus(c.status) === "Assigned");
+  const statProgress = countBy(statsList, (c) => normalizeStatus(c.status) === "In Progress");
+  const statResolved = countBy(statsList, (c) => normalizeStatus(c.status) === "Resolved");
+
+  const headerCols = showUserCol ? "grid-cols-7" : "grid-cols-6";
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Complaints</h1>
-        {user?.token && user?.role !== 'admin' && (
-          <button
-            onClick={() => {
-              setOpen(true);
-              search.set('new', '1');
-              setSearch(search, { replace: true });
-            }}
-            className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-          >
-            Add New Complaint
-          </button>
-        )}
+    <div className="min-h-screen bg-gray-50 p-6 pt-28">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-800">
+          Welcome{user?.name ? `, ${user.name}!` : "!"}
+        </h1>
+        <p className="text-sm text-gray-600">Here's the complaints dashboard for today.</p>
       </div>
 
+      {/* Stat Cards */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Pending complaints", value: statPending,  icon: "⏳" },
+          { label: "Assigned complaints", value: statAssigned, icon: "👤" },
+          { label: "Complaints in progress", value: statProgress, icon: "🔧" },
+          { label: "Resolved complaints", value: statResolved, icon: "✅" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-2 flex items-center gap-2 text-sm text-gray-600">
+              <span className="text-lg">{s.icon}</span>
+              <span>{s.label}</span>
+            </div>
+            <div className="text-3xl font-semibold text-gray-800">{s.value}</div>
+          </div>
+        ))}
+      </div>
+      {/* Error banner */}
+      {pageError && (
+        <div
+          className="mb-4 flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-2 text-red-800"
+          role="alert"
+          aria-live="assertive"
+        >
+          <span>{pageError}</span>
+          <button
+            onClick={() => setPageError("")}
+            className="text-red-700 hover:text-red-900"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+      {/* Success banner */}
       {pageSuccess && (
         <div
-          className="mb-3 flex items-center justify-between rounded border border-green-200 bg-green-50 px-4 py-2 text-green-800"
+          className="mb-4 flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-4 py-2 text-green-800"
           role="status"
           aria-live="polite"
         >
           <span>{pageSuccess}</span>
           <button
-            onClick={() => setPageSuccess('')}
+            onClick={() => setPageSuccess("")}
             className="text-green-700 hover:text-green-900"
             aria-label="Dismiss"
           >
@@ -157,106 +313,83 @@ export default function Complaints() {
         </div>
       )}
 
-      {!user?.token && <div className="text-gray-700 mb-4">Please log in to register a complaint.</div>}
-
-      {user?.token && (
-        <div className="bg-white shadow-md rounded-lg border border-gray-200 overflow-hidden">
-          <div className={`grid ${headerCols} font-semibold px-4 py-3 border-b bg-gray-50`}>
-            {showUserCol && <div>User</div>}
-            <div>Reference</div>
-            <div>Category</div>
-            <div>Priority</div>
-            <div>Description</div>
-            <div>Actions</div>
-          </div>
-
-          {loading && <div className="px-4 py-3 text-gray-600">Loading…</div>}
-          {loadError && <div className="px-4 py-3 text-red-600">{loadError}</div>}
-
-          {!loading &&
-            !loadError &&
-            complaints.map((c) => (
-              <div
-                key={c._id}
-                className={`grid ${headerCols} px-4 py-3 border-b hover:bg-gray-50 transition-colors`}
-              >
-                {showUserCol && (
-                  <div title={c.createdBy?.email}>
-                    {c.createdBy?.name || c.createdBy?.email || '-'}
-                  </div>
-                )}
-                <div className="font-mono">{c.reference}</div>
-                <div>{c.category?.name || '-'}</div>
-                <div>
-                  <PriorityBadge value={c.priority} />
-                </div>
-                <div className="truncate" title={c.description}>
-                  {c.description}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2">
-                  {canEdit(c) && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingComplaint(c)}
-                      className="p-2 rounded hover:bg-gray-100 focus:outline-none focus:ring focus:ring-blue-200"
-                      aria-label={`Edit ${c.reference}`}
-                      title="Edit"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 text-gray-700"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 .75a1 1 0 01-1.213-1.213l.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
-                      </svg>
-                    </button>
-                  )}
-
-                  {canDelete(c) && (
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(c)}
-                      disabled={deletingId === c._id}
-                      className={`p-2 rounded focus:outline-none focus:ring focus:ring-red-200 ${
-                        deletingId === c._id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50'
-                      }`}
-                      aria-label={`Delete ${c.reference}`}
-                      title="Delete"
-                    >
-                      {/* Red trash icon with thicker stroke */}
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 text-red-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2.5}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M3 6h18" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                        <path d="M9 6V5a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-          {!loading && !loadError && complaints.length === 0 && (
-            <div className="px-4 py-3 text-gray-600">No complaints yet.</div>
+      {/* Toolbar */}
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full max-w-md">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21 20.3l-4.1-4.1a8 8 1 0 0-1.4 1.4l4.1 4.1 1.4-1.4zM10 16a6 6 0 1 1 0-12 6 6 0 0 1 0 12z" />
+            </svg>
+          </span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search complaints…"
+            className="w-full rounded-md border border-gray-300 pl-9 pr-9 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7BEA] focus:border-[#2E7BEA]"
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              ×
+            </button>
           )}
         </div>
-      )}
 
-      {open && user?.token && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+        <div className="flex items-center gap-2">
+          <label htmlFor="status" className="text-sm text-gray-600">Status:</label>
+          <select
+            id="status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2E7BEA] focus:border-[#2E7BEA]"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="assigned">Assigned</option>
+            <option value="inprogress">In Progress</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+
+        {token && user?.role !== "admin" && user?.role !== "staff" && (
+          <button
+            onClick={() => {
+              setOpen(true);
+              const sp = new URLSearchParams(searchParams);
+              sp.set("new", "1");
+              setSearchParams(sp, { replace: true });
+            }}
+            className="rounded-md bg-[#1e4e8c] px-4 py-2 text-white shadow hover:bg-[#194374]"
+          >
+            Add new complaint
+          </button>
+        )}
+      </div>
+
+      {/* Table Card */}
+      <ComplaintsTable
+        complaints={complaints}
+        filteredComplaints={filtered}
+        user={user}
+        token={token}
+        staffOptions={staffOptions}
+        showUserCol={showUserCol}
+        onError={showError}
+        canEdit={canEdit}
+        onEdit={setEditingComplaint}
+        canTimeline={canTimeline}
+        canDelete={canDelete}
+        onUpdated={applyUpdate}
+        onDelete={handleDelete}
+        deletingId={deletingId}
+      />
+
+      {open && token && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="w-full max-w-lg">
             <ComplaintForm onClose={closeForm} onSubmitted={handleSubmitted} />
           </div>
@@ -264,7 +397,7 @@ export default function Complaints() {
       )}
 
       {editingComplaint && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="w-full max-w-lg">
             <EditComplaintModal
               complaint={editingComplaint}

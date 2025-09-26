@@ -1,5 +1,6 @@
 const ComplaintModel = require('../models/Complaint');
 const CategoryModel = require('../models/Category');
+const UserModel = require('../models/User');
 const mongoose = require('mongoose');
 
 class ComplaintEntity {
@@ -11,6 +12,7 @@ class ComplaintEntity {
     this.category = data.category;
     this.priority = data.priority || 'Medium';
     this.createdBy = data.createdBy;
+    this.status = data.status || 'Pending';
     this.assignedTo = data.assignedTo || null;
     this.reference = data.reference; 
   }
@@ -25,7 +27,8 @@ class ComplaintEntity {
       description: this.description,
       category: this.category,
       priority: this.priority,
-      createdBy: this.createdBy,    
+      createdBy: this.createdBy,
+      status: this.status,    
       assignedTo: this.assignedTo,
       reference: this.reference
     };
@@ -40,43 +43,144 @@ class ComplaintEntity {
     return ComplaintModel.create(entity.toObject());
   }
     
-  static async list(user){
-    let match = {createdBy: user._id};
-    if(user.role === 'admin'){
+  static async list(user) {
+    const isAdmin = user.role === 'admin';
+    const isStaff = user.role === 'staff';
+
+    let match = {};
+
+    if (isAdmin) {
+      // admin sees all complaints
       match = {};
+    } else if (isStaff) {
+      // staff sees only complaints assigned to them
+      match = { assignedTo: user._id };
+    } else {
+      // normal users see only complaints they created
+      match = { createdBy: user._id };
     }
+
     return ComplaintModel.find(match)
-    .populate('category', 'name status')
-    .populate('createdBy', 'name email')
-    .sort({ createdAt: -1 })
-    .lean();
+      .populate({
+        path: 'assignedTo',
+        select: isAdmin ? 'name email role' : 'name role'
+      })
+      .populate({
+        path: 'category',
+        select: 'name status'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name email'
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
   }
 
-  static async update(id, user, data){
-    if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid complaint ID');
+  static async update(id, user, data) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new Error('Invalid complaint ID');
+    }
 
     const complaint = await ComplaintModel.findById(id);
     if (!complaint) throw new Error('Complaint not found');
 
-    if (user.role !== 'admin' && complaint.createdBy.toString() !== user._id.toString()) {
-      throw new Error('Not authorized to update this complaint');
+    const isOwner = complaint.createdBy?.equals
+      ? complaint.createdBy.equals(user._id)
+      : String(complaint.createdBy) === String(user._id);
+
+    const isAssignedToUser = complaint.assignedTo?.equals
+      ? complaint.assignedTo.equals(user._id)
+      : String(complaint.assignedTo || "") === String(user._id);
+
+    const staffAllowed = ['Assigned','In Progress', 'Resolved']; // staff can only move forward
+    const allAllowed   = ['Pending', 'Assigned', 'In Progress', 'Resolved'];
+
+    const stampDatesIfNeeded = (prevStatus, nextStatus) => {
+      if (!nextStatus || nextStatus === prevStatus) return;
+      if (nextStatus === 'In Progress' && !complaint.inProgressDate) {
+        complaint.inProgressDate = new Date();
+      }
+      if (nextStatus === 'Resolved' && !complaint.resolvedDate) {
+        complaint.resolvedDate = new Date();
+      }
+    };
+
+    const prevStatus = complaint.status;
+
+    if (user.role === 'staff') {
+      // must be assigned to this staff member
+      if (!isAssignedToUser) {
+        throw new Error('Not authorized to update this complaint');
+      }
+      if (data.status === undefined) {
+        throw new Error('Only status updates are allowed for staff');
+      }
+      const next = data.status;
+
+      if (!staffAllowed.includes(next)) {
+        throw new Error('Invalid status');
+      }
+
+      // enforce forward-only flow for staff
+      if (prevStatus === 'Assigned' && next !== 'In Progress') {
+        throw new Error('Move to "In Progress" first');
+      }
+      if (prevStatus === 'In Progress' && next !== 'Resolved') {
+        throw new Error('Only allowed to move to "Resolved" from "In Progress"');
+      }
+      if (prevStatus === 'Resolved') {
+        throw new Error('Resolved complaints cannot be updated by staff');
+      }
+
+      complaint.status = next;
+      stampDatesIfNeeded(prevStatus, next);
+
+    } else {
+      // ADMIN or CREATOR (UI already prevents admin from editing status, but keep server rules sane)
+      if (user.role !== 'admin' && !isOwner) {
+        throw new Error('Not authorized to update this complaint');
+      }
+
+      // validate category if provided
+      if (data.category !== undefined) {
+        if (!mongoose.Types.ObjectId.isValid(data.category)) {
+          throw new Error('Invalid category ID');
+        }
+        const cat = await CategoryModel.findOne({ _id: data.category, status: 'Active' })
+          .select('_id')
+          .lean();
+        if (!cat) throw new Error('Invalid or inactive category');
+      }
+
+      const updatableFields = ['subject', 'description', 'category', 'priority', 'status'];
+      for (const field of updatableFields) {
+        if (data[field] !== undefined) {
+          if (field === 'status') {
+            if (!allAllowed.includes(data.status)) throw new Error('Invalid status');
+            const next = data.status || 'Pending';
+            complaint.status = next;
+            stampDatesIfNeeded(prevStatus, next);
+          } else {
+            complaint[field] = data[field];
+          }
+        }
+      }
     }
 
-    const updatableFields = ['subject', 'description', 'category', 'priority', 'status', 'assignedTo'];
-    for (const field of updatableFields) {
-      if (data[field] !== undefined) complaint[field] = data[field];
-    }
+    await complaint.save();
 
-    if (data.category) {
-      const cat = await CategoryModel.findById({_id: data.category, status: 'Active' }).lean();
-      if (!cat) throw new Error('Invalid or inactive category');
-    }
-    
+    // always return fully populated doc so FE row doesn't flicker
+    await complaint.populate([
+      { path: 'assignedTo', select: 'name email role' },
+      { path: 'category',   select: 'name status' },
+      { path: 'createdBy',  select: 'name email' },
+    ]);
 
-    return complain.save()
-    .then(doc => doc.populate('category', 'name status')
-    .populate('createdBy', 'name email'));
+    return complaint;
   }
+
 
   static async remove(id, user){
     if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid complaint ID');
@@ -92,24 +196,41 @@ class ComplaintEntity {
     return true;
   }
 
+
   static async assignStaff(complaintId, staffId) {
-    let staff = null;
+    let update = {
+      assignedTo: null,
+      assignedDate: null,
+      status: 'Pending'
+    };
 
     if (staffId) {
-      staff = await UserModel.findById(staffId);
+      // validate staff user
+      const staff = await UserModel.findById(staffId);
       if (!staff || staff.role !== 'staff') {
         throw new Error('Invalid staff user');
       }
+
+      update = {
+        assignedTo: staff._id,
+        assignedDate: new Date(),
+        status: 'Assigned'
+      };
     }
+
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
-      { assignedTo: staff ? staffId : null },
-      { new: true }
-    ).populate('assignedTo', 'name email role');
+      { $set: update },
+      { new: true, runValidators: true }
+    );
 
     if (!updated) throw new Error('Complaint not found');
+    await updated.populate([
+      { path: 'assignedTo', select: 'name email role' },
+      { path: 'category',   select: 'name' },
+      { path: 'createdBy',  select: 'name email' },
+    ]);
     return updated;
-  
   }
 }
 

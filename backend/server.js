@@ -14,6 +14,7 @@ const app = express();
 app.use(cors());
 =======
 const adminRoutes = require('./routes/adminRoutes');
+const User = require('./models/User');
 
 const app = express();
 

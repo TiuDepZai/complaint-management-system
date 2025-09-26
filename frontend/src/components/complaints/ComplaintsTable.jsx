@@ -1,0 +1,175 @@
+import { useState } from "react";
+import React from "react";
+import { StatusCell, AssigneeCell, PriorityPill } from "./index";
+import TimelineBar from "../complaints/TimeLineBar";
+
+export default function ComplaintsTable({
+  complaints,
+  filteredComplaints,
+  user,
+  token,
+  staffOptions,
+  showUserCol,
+  canEdit,
+  canDelete,
+  onUpdated,
+  canTimeline,
+  onDelete,
+  onEdit,
+  deletingId,
+  onError
+}) {
+  const isAdmin = user?.role === "admin";
+  const isStaff = user?.role === "staff";
+
+  const [expandedId, setExpandedId] = useState(null);
+
+  // grid columns: drop the Action column entirely for staff
+  const headerCols = showUserCol
+    ? isStaff
+      ? "grid-cols-6"
+      : "grid-cols-7"
+    : isStaff
+    ? "grid-cols-5"
+    : "grid-cols-6";
+
+  const toggleExpand = (id) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+      {/* Header */}
+      <div
+        className={`grid ${headerCols} gap-x-4 items-center border-b bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700`}
+      >
+        {showUserCol && <div>User</div>}
+        <div>Reference</div>
+        <div>Category</div>
+        <div>Status</div>
+        <div>Assigned To</div>
+        <div className="pl-4">Priority</div>
+        {!isStaff && <div>Actions</div>}
+      </div>
+
+      {/* Body */}
+      {filteredComplaints.length === 0 ? (
+        <div className="px-4 py-8 text-center text-gray-500">
+          No complaints found.
+        </div>
+      ) : (
+        filteredComplaints.map((c) => (
+          <React.Fragment key={c._id}>
+            <div
+              className={`grid ${headerCols} gap-x-4 items-center border-b px-4 py-3 text-sm hover:bg-gray-50`}
+            >
+              {showUserCol && (
+                <div title={c.createdBy?.email}>
+                  {c.createdBy?.name || c.createdBy?.email || "-"}
+                </div>
+              )}
+
+              <div className="font-mono min-w-0 truncate">{c.reference}</div>
+              <div className="min-w-0 truncate">{c.category?.name || "-"}</div>
+
+              <StatusCell
+                isAdmin={isAdmin}
+                complaint={c}
+                user={user}
+                token={token}
+                onUpdated={onUpdated}
+                onError={onError}
+              />
+
+              <AssigneeCell
+                complaint={c}
+                isAdmin={isAdmin}
+                token={token}
+                onUpdated={onUpdated}
+                staffOptions={staffOptions}
+              />
+
+              <div className="justify-self-start ml-4">
+                <PriorityPill value={c.priority} />
+              </div>
+
+              {/* Hide the entire Action cell for staff */}
+              {!isStaff && (
+                <div className="flex items-center gap-2">
+                  {canEdit(c) && (
+                  <button
+                    type="button"
+                    onClick={() => onEdit?.(c)}
+                    className="rounded p-2 hover:bg-gray-100 focus:outline-none focus:ring focus:ring-blue-200"
+                    aria-label={`Edit ${c.reference}`}
+                    title="Edit"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-gray-700"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a2 2 0 01-.878.517l-3 .75a1 1 0 01-1.213-1.213l.75-3a2 2 0 01.517-.878l8.5-8.5zM12 5l3 3" />
+                    </svg>
+                  </button>
+                )}
+
+                {canDelete(c) && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(c)}
+                    disabled={deletingId === c._id}
+                    className={`rounded p-2 focus:outline-none focus:ring focus:ring-red-200 ${
+                      deletingId === c._id
+                        ? "cursor-not-allowed opacity-50"
+                        : "hover:bg-red-50"
+                    }`}
+                    aria-label={`Delete ${c.reference}`}
+                    title="Delete"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-red-600"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6h18" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                      <path d="M9 6V5a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1" />
+                    </svg>
+                  </button>
+                )}
+
+
+                  {/* Expand / Collapse */}
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(c._id)}
+                    className="rounded p-2 hover:bg-gray-100"
+                    aria-label="Expand details"
+                  >
+                    {expandedId === c._id ? "▲" : "▼"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Expanded row */}
+            {expandedId === c._id && (
+              <div className="bg-gray-50 border-b px-6 py-4 text-sm text-gray-700">
+                <TimelineBar complaint={c} />
+              </div>
+            )}
+          </React.Fragment>
+        ))
+      )}
+    </div>
+  );
+}
