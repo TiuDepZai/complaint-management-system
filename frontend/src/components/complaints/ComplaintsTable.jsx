@@ -87,6 +87,7 @@ export default function ComplaintsTable({
                 token={token}
                 onUpdated={onUpdated}
                 staffOptions={staffOptions}
+                onError={onError}
               />
 
               <div className="justify-self-start ml-4">
