@@ -198,29 +198,59 @@ class ComplaintEntity {
 
 
   static async assignStaff(complaintId, staffId) {
-    let update = {
-      assignedTo: null,
-      assignedDate: null,
-      status: 'Pending'
-    };
+    // Read current state once
+    const existing = await ComplaintModel.findById(complaintId).select('status');
+    if (!existing) throw new Error('Complaint not found');
+
+    const progressed = ['In Progress', 'Resolved'].includes(existing.status);
 
     if (staffId) {
-      // validate staff user
-      const staff = await UserModel.findById(staffId);
+      // ASSIGN / REASSIGN to a staff member
+      const staff = await UserModel.findById(staffId).select('_id role');
       if (!staff || staff.role !== 'staff') {
         throw new Error('Invalid staff user');
       }
 
-      update = {
-        assignedTo: staff._id,
-        assignedDate: new Date(),
-        status: 'Assigned'
-      };
+      // Block reassign once work has started/finished
+      if (progressed) {
+        throw new Error('Cannot reassign a complaint that is In Progress or Resolved');
+      }
+
+      const updated = await ComplaintModel.findByIdAndUpdate(
+        complaintId,
+        {
+          $set: {
+            assignedTo: staff._id,
+            assignedDate: new Date(),
+            status: 'Assigned',
+          },
+        },
+        { new: true, runValidators: true }
+      );
+
+      if (!updated) throw new Error('Complaint not found');
+      await updated.populate([
+        { path: 'assignedTo', select: 'name email role' },
+        { path: 'category',   select: 'name' },
+        { path: 'createdBy',  select: 'name email' },
+      ]);
+      return updated;
+    }
+
+    // UNASSIGN (staffId is null/empty) — Option A: block if progressed
+    if (progressed) {
+      throw new Error('Cannot unassign a complaint that is In Progress or Resolved');
     }
 
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
-      { $set: update },
+      {
+        $set: {
+          assignedTo: null,
+          assignedDate: null,
+          status: 'Pending',
+        },
+      },
       { new: true, runValidators: true }
     );
 
@@ -232,6 +262,8 @@ class ComplaintEntity {
     ]);
     return updated;
   }
+
+
 }
 
 module.exports = ComplaintEntity;
