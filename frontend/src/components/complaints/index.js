@@ -63,7 +63,7 @@ export const PriorityPill = ({ value }) => {
 };
 
 /** ────────────────────── cells (assignment & status) ────────────────────── */
-export function AssigneeCell({ complaint, isAdmin, token, onUpdated, staffOptions }) {
+export function AssigneeCell({ complaint, isAdmin, token, onUpdated, staffOptions, onError }) {
   const [saving, setSaving] = useState(false);
   const currentStaffId =
     (complaint?.assignedTo && typeof complaint.assignedTo === "object")
@@ -82,9 +82,14 @@ export function AssigneeCell({ complaint, isAdmin, token, onUpdated, staffOption
 
   const handleChange = async (e) => {
     const staffId = e.target.value || null;
+    const prev = currentStaffId;
     try {
       setSaving(true);
       await assign(staffId);
+    } catch(err){
+        onError?.(err?.response?.data?.message || err?.message || "Failed to update assignment");
+        // revert UI
+        try { e.target.value = prev || ""; } catch {}
     } finally {
       setSaving(false);
     }
