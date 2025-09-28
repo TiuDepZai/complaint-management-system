@@ -1,8 +1,9 @@
 const ComplaintModel = require('../models/Complaint');
 const CategoryModel = require('../models/Category');
 const UserModel = require('../models/User');
-const NotificationEntity = require('./NotificationEntities')
 const mongoose = require('mongoose');
+const complaintEvents = require('../events/complaintsEvent');
+
 
 // tolerant helpers: work with OOP user or raw { role }
 const isAdmin = (u) =>
@@ -194,7 +195,7 @@ class ComplaintEntity {
     return true;
   }
 
-  static async assignStaff(complaintId, staffId) {
+   static async assignStaff(complaintId, staffId) {
     let update = {
       assignedTo: null,
       assignedDate: null,
@@ -202,7 +203,6 @@ class ComplaintEntity {
     };
 
     if (staffId) {
-      // validate staff user
       const staff = await UserModel.findById(staffId);
       if (!staff || staff.role !== 'staff') {
         throw new Error('Invalid staff user');
@@ -220,29 +220,14 @@ class ComplaintEntity {
       { $set: update },
       { new: true, runValidators: true }
     ).populate([
-      { path: 'assignedTo', select: 'name email role' },  // 👈 ensure email is included
-      { path: 'category',   select: 'name' },
-      { path: 'createdBy',  select: 'name email' },
-    ]);
-
-  if (!updated) throw new Error('Complaint not found');
-
-  if (updated.assignedTo) {
-    const notif = new NotificationEntity({
-      userId: updated.assignedTo._id,
-      type: 'job_assigned',
-      message: `You have been assigned complaint: ${updated.subject}`,
-      metadata: { complaintId: updated._id },
-    });
-
-    await notif.send(updated.assignedTo);  // now has email
-  }
-
-    await updated.populate([
       { path: 'assignedTo', select: 'name email role' },
       { path: 'category',   select: 'name' },
       { path: 'createdBy',  select: 'name email' },
     ]);
+
+    if (!updated) throw new Error('Complaint not found');
+
+    complaintEvents.emit('complaintAssigned', updated);
 
     return updated;
   }

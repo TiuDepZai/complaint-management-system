@@ -25,6 +25,9 @@ app.get('/ping', (req, res) => {
   res.send('pong');
 });
 
+require('./observers/NotificationObservers');
+require('./observers/LoggingObserver');
+
 //app.use('/api/tasks', require('./routes/taskRoutes'));
 
 async function ensureFirstAdmin() {
