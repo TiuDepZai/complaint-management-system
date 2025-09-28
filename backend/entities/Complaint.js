@@ -1,6 +1,7 @@
 const ComplaintModel = require('../models/Complaint');
 const CategoryModel = require('../models/Category');
 const UserModel = require('../models/User');
+const NotificationEntity = require('./NotificationEntities')
 const mongoose = require('mongoose');
 
 // tolerant helpers: work with OOP user or raw { role }
@@ -194,49 +195,58 @@ class ComplaintEntity {
   }
 
   static async assignStaff(complaintId, staffId) {
-    const existing = await ComplaintModel.findById(complaintId).select('status');
-    if (!existing) throw new Error('Complaint not found');
-
-    const progressed = ['In Progress', 'Resolved'].includes(existing.status);
+    let update = {
+      assignedTo: null,
+      assignedDate: null,
+      status: 'Pending',
+    };
 
     if (staffId) {
-      const staff = await UserModel.findById(staffId).select('_id role');
-      if (!staff || String(staff.role).toLowerCase() !== 'staff') {
+      // validate staff user
+      const staff = await UserModel.findById(staffId);
+      if (!staff || staff.role !== 'staff') {
         throw new Error('Invalid staff user');
       }
-      if (progressed) throw new Error('Cannot reassign a complaint that is In Progress or Resolved');
 
-      const updated = await ComplaintModel.findByIdAndUpdate(
-        complaintId,
-        { $set: { assignedTo: staff._id, assignedDate: new Date(), status: 'Assigned' } },
-        { new: true, runValidators: true }
-      );
-
-      if (!updated) throw new Error('Complaint not found');
-      await updated.populate([
-        { path: 'assignedTo', select: 'name email role' },
-        { path: 'category', select: 'name' },
-        { path: 'createdBy', select: 'name email' },
-      ]);
-      return updated;
+      update = {
+        assignedTo: staff._id,
+        assignedDate: new Date(),
+        status: 'Assigned',
+      };
     }
-
-    if (progressed) throw new Error('Cannot unassign a complaint that is In Progress or Resolved');
 
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
-      { $set: { assignedTo: null, assignedDate: null, status: 'Pending' } },
+      { $set: update },
       { new: true, runValidators: true }
-    );
+    ).populate([
+      { path: 'assignedTo', select: 'name email role' },  // 👈 ensure email is included
+      { path: 'category',   select: 'name' },
+      { path: 'createdBy',  select: 'name email' },
+    ]);
 
-    if (!updated) throw new Error('Complaint not found');
+  if (!updated) throw new Error('Complaint not found');
+
+  if (updated.assignedTo) {
+    const notif = new NotificationEntity({
+      userId: updated.assignedTo._id,
+      type: 'job_assigned',
+      message: `You have been assigned complaint: ${updated.subject}`,
+      metadata: { complaintId: updated._id },
+    });
+
+    await notif.send(updated.assignedTo);  // now has email
+  }
+
     await updated.populate([
       { path: 'assignedTo', select: 'name email role' },
-      { path: 'category', select: 'name' },
-      { path: 'createdBy', select: 'name email' },
+      { path: 'category',   select: 'name' },
+      { path: 'createdBy',  select: 'name email' },
     ]);
+
     return updated;
   }
+
 }
 
 module.exports = ComplaintEntity;
