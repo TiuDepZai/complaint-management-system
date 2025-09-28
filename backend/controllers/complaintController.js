@@ -1,17 +1,22 @@
-const ComplaintEntity = require('../entities/Complaint');
 const mongoose = require('mongoose');
+const { complaintAccess } = require('../src/core/proxy'); // <-- use the proxy
+const ComplaintEntity = require('../entities/Complaint'); // still needed to build entity in create (if passing entity)
 
 const isAdmin = (u) => (typeof u?.isAdmin === 'function' ? u.isAdmin() : String(u?.role).toLowerCase() === 'admin');
 
 const create = async (req, res) => {
   try {
+    // Keep using ComplaintEntity to build the instance,
+    // the proxy delegates to entity.create underneath.
+    const userId = req.user._id || req.user.id;
     const entity = new ComplaintEntity({
       ...req.body,
-      createdBy: req.user.id,
+      createdBy: userId,
       name: req.user.name,
       email: req.user.email,
     });
-    const complaint = await ComplaintEntity.create(entity);
+
+    const complaint = await complaintAccess.create(req.user, entity);
     res.status(201).json(complaint);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -20,7 +25,7 @@ const create = async (req, res) => {
 
 const list = async (req, res) => {
   try {
-    const complaints = await ComplaintEntity.list(req.user);
+    const complaints = await complaintAccess.list(req.user);
     res.json(complaints);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -29,7 +34,7 @@ const list = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const updated = await ComplaintEntity.update(req.params.id, req.user, req.body);
+    const updated = await complaintAccess.update(req.params.id, req.user, req.body);
     res.json(updated);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -38,7 +43,7 @@ const update = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
-    await ComplaintEntity.remove(req.params.id, req.user);
+    await complaintAccess.remove(req.params.id, req.user);
     res.status(200).json({ message: 'Complaint deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -57,15 +62,15 @@ const assignComplaint = async (req, res) => {
       return res.status(400).json({ message: 'Invalid staffId' });
     }
 
-    // polymorphic guard
-    if (!req.user?.canAssign?.() && !isAdmin(req.user)) {
+    if (!(req.user?.canAssign?.() || isAdmin(req.user))) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const updatedComplaint = await ComplaintEntity.assignStaff(complaintId, staffId || null);
+    const updatedComplaint = await complaintAccess.assignStaff(req.user, complaintId, staffId || null);
     res.status(200).json(updatedComplaint);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    const status = error.statusCode || 400;
+    res.status(status).json({ message: error.message });
   }
 };
 

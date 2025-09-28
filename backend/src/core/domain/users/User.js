@@ -1,12 +1,12 @@
 // Base domain user: encapsulates shared identity and default capabilities.
 class User {
   constructor(doc) {
-    this._id = doc._id;
+    this._id = doc._id || doc.id;
     this.name = doc.name;
     this.email = doc.email;
     this.role = doc.role;
   }
-
+  get id() { return this._id; }
   // Capability booleans (abstraction / polymorphism)
   isAdmin() { return false; }
   isStaff() { return false; }
