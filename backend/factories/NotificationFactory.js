@@ -33,7 +33,7 @@ class EmailNotification {
     });
 
     await transporter.sendMail({
-      from: `"My App" <${process.env.EMAIL_USER}>`,
+      from: `"Complaint Hub" <${process.env.EMAIL_USER}>`,
       to: this.to,
       subject: this.subject,
       text: this.message,
