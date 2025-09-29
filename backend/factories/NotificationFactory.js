@@ -1,4 +1,5 @@
 const NotificationModel = require('../models/Notification');
+const { getMailAdapter } = require('../adapters/email');
 const nodemailer = require('nodemailer');
 
 class NotificationFactory {
@@ -17,27 +18,34 @@ class NotificationFactory {
 // --- Concrete notification classes ---
 
 class EmailNotification {
-  constructor({ to, subject, message }) {
+  constructor({ to, subject, message, html, adapter }) {
     this.to = to;
     this.subject = subject;
     this.message = message;
+    this.adapter = adapter || getMailAdapter(); 
   }
 
   async send() {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail', 
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `"Complaint Hub" <${process.env.EMAIL_USER}>`,
+    await this.adapter.send({
       to: this.to,
       subject: this.subject,
       text: this.message,
+      html: this.html,
     });
+    // const transporter = nodemailer.createTransport({
+    //   service: 'gmail', 
+    //   auth: {
+    //     user: process.env.EMAIL_USER,
+    //     pass: process.env.EMAIL_PASS,
+    //   },
+    // });
+
+    // await transporter.sendMail({
+    //   from: `"Complaint Hub" <${process.env.EMAIL_USER}>`,
+    //   to: this.to,
+    //   subject: this.subject,
+    //   text: this.message,
+    // });
 
     console.log(`📧 Email sent to ${this.to}`);
   }
