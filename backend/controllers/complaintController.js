@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { complaintAccess } = require('../src/core/proxy'); // <-- use the proxy
 const ComplaintEntity = require('../entities/Complaint'); // still needed to build entity in create (if passing entity)
+const complaintEvents = require('../events/complaintsEvent');
 
 const isAdmin = (u) => (typeof u?.isAdmin === 'function' ? u.isAdmin() : String(u?.role).toLowerCase() === 'admin');
 
@@ -50,6 +51,34 @@ const remove = async (req, res) => {
   }
 };
 
+// const assignComplaint = async (req, res) => {
+//   try {
+//     const { complaintId } = req.params;
+//     const { staffId } = req.body;
+
+//     if (!mongoose.Types.ObjectId.isValid(complaintId)) {
+//       return res.status(400).json({ message: 'Invalid complaintId' });
+//     }
+//     if (staffId && !mongoose.Types.ObjectId.isValid(staffId)) {
+//       return res.status(400).json({ message: 'Invalid staffId' });
+//     }
+
+//     if (!(req.user?.canAssign?.() || isAdmin(req.user))) {
+//       return res.status(403).json({ message: 'Forbidden' });
+//     }
+
+//     const updatedComplaint = await complaintAccess.assignStaff(req.user, complaintId, staffId || null);
+//     complaintEvents.emit('complaintAssigned', {
+//       complaint: updatedComplaint,
+//       actor: req.user, // the assigning admin
+//     });
+//     res.status(200).json(updatedComplaint);
+//   } catch (error) {
+//     const status = error.statusCode || 400;
+//     res.status(status).json({ message: error.message });
+//   }
+// };
+
 const assignComplaint = async (req, res) => {
   try {
     const { complaintId } = req.params;
@@ -66,7 +95,30 @@ const assignComplaint = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const updatedComplaint = await complaintAccess.assignStaff(req.user, complaintId, staffId || null);
+    const updatedComplaint = await complaintAccess.assignStaff(
+      req.user,
+      complaintId,
+      staffId || null
+    );
+
+    // emit a PLAIN object so observers see stable fields
+    const payloadComplaint = typeof updatedComplaint.toObject === 'function'
+      ? updatedComplaint.toObject({ depopulate: false })
+      : updatedComplaint;
+
+    const actor = {
+      _id: req.user._id || req.user.id,
+      name: req.user.name,
+      role: req.user.role,
+      email: req.user.email,
+    };
+
+    complaintEvents.emit('complaintAssigned', {
+      complaint: payloadComplaint,
+      actor,
+      action: staffId ? 'assign' : 'unassign',
+    });
+
     res.status(200).json(updatedComplaint);
   } catch (error) {
     const status = error.statusCode || 400;

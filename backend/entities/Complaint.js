@@ -195,29 +195,74 @@ class ComplaintEntity {
     return true;
   }
 
-   static async assignStaff(complaintId, staffId) {
-    let update = {
-      assignedTo: null,
-      assignedDate: null,
-      status: 'Pending',
-    };
+static async assignStaff(complaintId, staffId) {
+    // Get current status + assignee first
+    const current = await ComplaintModel.findById(complaintId)
+      .select('status assignedTo subject reference');
+    if (!current) throw new Error('Complaint not found');
 
+    const status = current.status;
+    const isLocked = status === 'In Progress' || status === 'Resolved';
+
+    // If work has started or finished, show action-specific errors
+    if (isLocked) {
+      if (staffId) {
+        // attempting to (re)assign
+        throw new Error('Cannot change assignee when complaint in progress or resolved');
+      } else {
+        // attempting to unassign
+        throw new Error('Cannot unassign when complaint in progress or resolved');
+      }
+    }
+
+    // ---- ASSIGN / REASSIGN ----
     if (staffId) {
-      const staff = await UserModel.findById(staffId);
-      if (!staff || staff.role !== 'staff') {
+      // Allowed only when current status is Pending or Assigned
+      if (status !== 'Pending' && status !== 'Assigned') {
+        throw new Error('Cannot assign at this stage');
+      }
+
+      // Validate staff user
+      const staff = await UserModel.findById(staffId).select('_id role');
+      if (!staff || String(staff.role).toLowerCase() !== 'staff') {
         throw new Error('Invalid staff user');
       }
 
-      update = {
-        assignedTo: staff._id,
-        assignedDate: new Date(),
-        status: 'Assigned',
-      };
+      const updated = await ComplaintModel.findByIdAndUpdate(
+        complaintId,
+        {
+          $set: {
+            assignedTo: staff._id,
+            assignedDate: new Date(),
+            status: 'Assigned',
+          },
+        },
+        { new: true, runValidators: true }
+      ).populate([
+        { path: 'assignedTo', select: 'name email role' },
+        { path: 'category',   select: 'name' },
+        { path: 'createdBy',  select: 'name email' },
+      ]);
+
+      if (!updated) throw new Error('Complaint not found');
+      return updated;
+    }
+
+    // ---- UNASSIGN ----
+    // Only allowed when currently Assigned
+    if (status !== 'Assigned') {
+      throw new Error('Only complaints in "Assigned" can be unassigned');
     }
 
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
-      { $set: update },
+      {
+        $set: {
+          assignedTo: null,
+          assignedDate: null,
+          status: 'Pending',
+        },
+      },
       { new: true, runValidators: true }
     ).populate([
       { path: 'assignedTo', select: 'name email role' },
@@ -226,9 +271,6 @@ class ComplaintEntity {
     ]);
 
     if (!updated) throw new Error('Complaint not found');
-
-    complaintEvents.emit('complaintAssigned', updated);
-
     return updated;
   }
 
