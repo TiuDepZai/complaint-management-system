@@ -28,7 +28,7 @@
 
             const entity = new CategoryEntity(name, description, status);
 
-            const category = CategoryEntity.create(entity);
+            const category = await CategoryEntity.create(entity);
 
             res.status(201).json(category);
         } catch (err) {

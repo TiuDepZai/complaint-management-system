@@ -51,34 +51,6 @@ const remove = async (req, res) => {
   }
 };
 
-// const assignComplaint = async (req, res) => {
-//   try {
-//     const { complaintId } = req.params;
-//     const { staffId } = req.body;
-
-//     if (!mongoose.Types.ObjectId.isValid(complaintId)) {
-//       return res.status(400).json({ message: 'Invalid complaintId' });
-//     }
-//     if (staffId && !mongoose.Types.ObjectId.isValid(staffId)) {
-//       return res.status(400).json({ message: 'Invalid staffId' });
-//     }
-
-//     if (!(req.user?.canAssign?.() || isAdmin(req.user))) {
-//       return res.status(403).json({ message: 'Forbidden' });
-//     }
-
-//     const updatedComplaint = await complaintAccess.assignStaff(req.user, complaintId, staffId || null);
-//     complaintEvents.emit('complaintAssigned', {
-//       complaint: updatedComplaint,
-//       actor: req.user, // the assigning admin
-//     });
-//     res.status(200).json(updatedComplaint);
-//   } catch (error) {
-//     const status = error.statusCode || 400;
-//     res.status(status).json({ message: error.message });
-//   }
-// };
-
 const assignComplaint = async (req, res) => {
   try {
     const { complaintId } = req.params;

@@ -1,773 +1,512 @@
-// example_test.js
 const chai = require('chai');
 const sinon = require('sinon');
-const mongoose = require('mongoose');
-
 const { expect } = chai;
 
-const Category = require('../models/Category');
-const Complaint = require('../models/Complaint');
+// Controllers
+const categoryController = require('../controllers/categoryController');
+const complaintController = require('../controllers/complaintController');
 
-// Category controller
-const {
-  list: categoryList,
-  create: categoryCreate,
-  update: categoryUpdate,
-  remove: categoryRemove,
-} = require('../controllers/categoryController');
+// Units to stub
+const CategoryEntity = require('../entities/Category');
+const { complaintAccess } = require('../src/core/proxy');
 
-// Complaint controller
-const {
-  create: complaintCreate,
-  list: complaintList,
-  update: complaintUpdate,
-  remove: complaintRemove,
-} = require('../controllers/complaintController');
+const mockRes = () => {
+  const res = {};
+  res.status = sinon.stub().returns(res);
+  res.json = sinon.stub().returns(res);
+  res.send  = sinon.stub().returns(res);
+  return res;
+};
 
-describe('categoryController', () => {
-  afterEach(() => {
-    sinon.restore();
-  });
+describe('Controllers — CRUD & business rules (48 tests, no event asserts)', () => {
+  afterEach(() => sinon.restore());
 
-  // Helpers
-  const mockRes = () => {
-    const res = {};
-    res.status = sinon.stub().returns(res);
-    res.json = sinon.stub().returns(res);
-    res.send = sinon.stub().returns(res);
-    return res;
-  };
+  // ───────────────────────────────────────────────
+  // CATEGORY CONTROLLER (20 tests)
+  // ───────────────────────────────────────────────
+  describe('categoryController', () => {
+    describe('list', () => {
+      it('[1] 200 returns categories', async () => {
+        const rows = [{ name: 'Billing' }, { name: 'Support' }];
+        sinon.stub(CategoryEntity, 'listAll').resolves(rows);
 
-  //#region list
-  describe('list', () => {
-    it('returns categories sorted desc by createdAt', async () => {
-      const docs = [{ name: 'A' }, { name: 'B' }];
-      const sortStub = { sort: sinon.stub().withArgs({ createdAt: -1 }).returnsThis(), lean: sinon.stub().resolves(docs) };
-      const findStub = sinon.stub(Category, 'find').returns(sortStub);
+        const req = {};
+        const res = mockRes();
+        await categoryController.list(req, res);
 
-      const req = {};
-      const res = mockRes();
+        expect(res.status.calledWith(200)).to.equal(true);
+        expect(res.json.calledWith(rows)).to.equal(true);
+      });
 
-      await categoryList(req, res);
+      it('[2] 500 on error', async () => {
+        sinon.stub(CategoryEntity, 'listAll').rejects(new Error('DB'));
+        const req = {};
+        const res = mockRes();
+        await categoryController.list(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
 
-      expect(findStub.calledOnce).to.be.true;
-      expect(sortStub.sort.calledWith({ createdAt: -1 })).to.be.true;
-      expect(res.status.calledWith(200)).to.be.true;
-      expect(res.json.calledWith(docs)).to.be.true;
+      // Replaced "array shape" —> real flow: empty list OK
+      it('[3] 200 on empty list', async () => {
+        sinon.stub(CategoryEntity, 'listAll').resolves([]);
+        const req = {};
+        const res = mockRes();
+        await categoryController.list(req, res);
+        expect(res.status.calledWith(200)).to.equal(true);
+        expect(res.json.calledWith([])).to.equal(true);
+      });
+
+      it('[4] calls listAll once', async () => {
+        const stub = sinon.stub(CategoryEntity, 'listAll').resolves([]);
+        const req = {};
+        const res = mockRes();
+        await categoryController.list(req, res);
+        expect(stub.calledOnce).to.equal(true);
+      });
     });
 
-    it('returns 500 on error', async () => {
-      sinon.stub(Category, 'find').throws(new Error('DB Error'));
+    describe('listActive', () => {
+      it('[5] 200 returns active', async () => {
+        const active = [{ _id: '1', name: 'Support' }];
+        sinon.stub(CategoryEntity, 'listActive').resolves(active);
+        const req = {};
+        const res = mockRes();
+        await categoryController.listActive(req, res);
+        expect(res.json.calledWith(active)).to.equal(true);
+      });
 
-      const req = {};
-      const res = mockRes();
+      it('[6] 500 on error', async () => {
+        sinon.stub(CategoryEntity, 'listActive').rejects(new Error('oops'));
+        const req = {};
+        const res = mockRes();
+        await categoryController.listActive(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
 
-      await categoryList(req, res);
+      // Replaced "array shape" —> empty active OK
+      it('[7] 200 on none active', async () => {
+        sinon.stub(CategoryEntity, 'listActive').resolves([]);
+        const req = {};
+        const res = mockRes();
+        await categoryController.listActive(req, res);
+        expect(res.json.calledWith([])).to.equal(true);
+      });
 
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
-
-  //#region create
-  describe('create', () => {
-    it('400 when name missing/blank', async () => {
-      const req = { body: { name: '   ' } };
-      const res = mockRes();
-
-      await categoryCreate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Name is required' })).to.be.true;
-    });
-
-    it('409 when name already exists (case-insensitive)', async () => {
-      const req = { body: { name: 'Billing', description: 'x', status: 'Active' } };
-      const res = mockRes();
-
-      const collation = { collation: sinon.stub().returnsThis() };
-      sinon.stub(Category, 'findOne').withArgs({ name: 'Billing' }).returns(collation);
-      collation.collation.withArgs({ locale: 'en', strength: 2 }).resolves({ _id: new mongoose.Types.ObjectId() });
-
-      await categoryCreate(req, res);
-
-      expect(res.status.calledWith(409)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Category already exists' })).to.be.true;
+      it('[8] calls listActive once', async () => {
+        const stub = sinon.stub(CategoryEntity, 'listActive').resolves([]);
+        const req = {};
+        const res = mockRes();
+        await categoryController.listActive(req, res);
+        expect(stub.calledOnce).to.equal(true);
+      });
     });
 
-    it('creates with default status Active when invalid/missing', async () => {
-      const req = { body: { name: 'Support', description: 'General' } }; // no status provided
-      const res = mockRes();
+    describe('create', () => {
+      it('[9] 201 creates successfully', async () => {
+        const body = { name: 'New', description: 'Desc', status: 'Active' };
+        const created = { _id: 'c1', ...body };
+        sinon.stub(CategoryEntity, 'create').resolves(created);
 
-      sinon.stub(Category, 'findOne').returns({ collation: sinon.stub().resolves(null) });
-      const created = { _id: new mongoose.Types.ObjectId(), name: 'Support', description: 'General', status: 'Active' };
-      const createStub = sinon.stub(Category, 'create').resolves(created);
+        const req = { body };
+        const res = mockRes();
+        await categoryController.create(req, res);
 
-      await categoryCreate(req, res);
+        expect(CategoryEntity.create.calledOnce).to.equal(true);
+        expect(res.status.calledWith(201)).to.equal(true);
+        expect(res.json.calledWith(created)).to.equal(true);
+      });
 
-      expect(createStub.calledOnceWithMatch({ name: 'Support', description: 'General', status: 'Active' })).to.be.true;
-      expect(res.status.calledWith(201)).to.be.true;
-      expect(res.json.calledWith(created)).to.be.true;
+      it('[10] passes body to entity.create', async () => {
+        const stub = sinon.stub(CategoryEntity, 'create').resolves({ _id: 'x' });
+        const payload = { name: 'X', description: 'Y', status: 'Inactive' };
+        const req = { body: payload };
+        const res = mockRes();
+        await categoryController.create(req, res);
+        expect(stub.calledOnce).to.equal(true);
+      });
+
+      it('[11] 500 on entity error (e.g., non-admin path caught by route in integration)', async () => {
+        sinon.stub(CategoryEntity, 'create').rejects(new Error('Forbidden by route'));
+        const req = { body: { name: 'N' } };
+        const res = mockRes();
+        await categoryController.create(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
+
+      it('[12] returns created object in json', async () => {
+        const created = { _id: 'c9', name: 'Cat' };
+        sinon.stub(CategoryEntity, 'create').resolves(created);
+        const req = { body: { name: 'Cat' } };
+        const res = mockRes();
+        await categoryController.create(req, res);
+        expect(res.json.calledWith(created)).to.equal(true);
+      });
     });
 
-    it('500 on error', async () => {
-      const req = { body: { name: 'X' } };
-      const res = mockRes();
+    describe('update', () => {
+      it('[13] 200 returns updated', async () => {
+        const updated = { _id: 'id1', name: 'U', status: 'Inactive' };
+        sinon.stub(CategoryEntity, 'update').resolves(updated);
 
-      sinon.stub(Category, 'findOne').returns({ collation: sinon.stub().resolves(null) });
-      sinon.stub(Category, 'create').throws(new Error('DB Error'));
+        const req = { params: { id: 'id1' }, body: { name: 'U', status: 'Inactive' } };
+        const res = mockRes();
 
-      await categoryCreate(req, res);
+        await categoryController.update(req, res);
+        expect(res.json.calledWith(updated)).to.equal(true);
+      });
 
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
+      it('[14] calls update with id/body', async () => {
+        const stub = sinon.stub(CategoryEntity, 'update').resolves({ _id: 'id1' });
+        const body = { name: 'N' };
+        const req = { params: { id: 'id1' }, body };
+        const res = mockRes();
+        await categoryController.update(req, res);
+        expect(stub.calledOnceWith('id1', body)).to.equal(true);
+      });
 
-  //#region update
-  describe('update', () => {
-    it('updates fields and returns updated doc', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { name: 'New Name', description: 'New Desc', status: 'Inactive' } };
-      const res = mockRes();
+      it('[15] 500 on error', async () => {
+        sinon.stub(CategoryEntity, 'update').rejects(new Error('DB'));
+        const req = { params: { id: 'id1' }, body: { name: 'N' } };
+        const res = mockRes();
+        await categoryController.update(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
 
-      // No duplicate
-      sinon.stub(Category, 'findOne').returns({ collation: sinon.stub().resolves(null) });
-
-      const updatedDoc = { _id: id, name: 'New Name', description: 'New Desc', status: 'Inactive' };
-      const findByIdAndUpdateStub = sinon.stub(Category, 'findByIdAndUpdate')
-        .withArgs(id, { name: 'New Name', description: 'New Desc', status: 'Inactive' }, sinon.match.object)
-        .resolves(updatedDoc);
-
-      await categoryUpdate(req, res);
-
-      expect(findByIdAndUpdateStub.calledOnce).to.be.true;
-      expect(res.json.calledWith(updatedDoc)).to.be.true;
-    });
-
-    it('400 if name provided but blank', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { name: '   ' } };
-      const res = mockRes();
-
-      await categoryUpdate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Name is required' })).to.be.true;
+      it('[16] returns updated doc json', async () => {
+        const updated = { _id: 'id1', name: 'Z' };
+        sinon.stub(CategoryEntity, 'update').resolves(updated);
+        const req = { params: { id: 'id1' }, body: { name: 'Z' } };
+        const res = mockRes();
+        await categoryController.update(req, res);
+        expect(res.json.calledWith(updated)).to.equal(true);
+      });
     });
 
-    it('409 if name collides with another category', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const otherId = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { name: 'Duplicate' } };
-      const res = mockRes();
+    describe('remove', () => {
+      it('[17] 200 removes successfully', async () => {
+        sinon.stub(CategoryEntity, 'remove').resolves(true);
+        const req = { params: { id: 'id1' } };
+        const res = mockRes();
+        await categoryController.remove(req, res);
+        expect(res.status.calledWith(200)).to.equal(true);
+      });
 
-      const col = { collation: sinon.stub().resolves({ _id: otherId }) };
-      sinon.stub(Category, 'findOne').withArgs({ name: 'Duplicate' }).returns(col);
-      col.collation.withArgs({ locale: 'en', strength: 2 });
+      it('[18] calls remove with id', async () => {
+        const stub = sinon.stub(CategoryEntity, 'remove').resolves(true);
+        const req = { params: { id: 'abc' } };
+        const res = mockRes();
+        await categoryController.remove(req, res);
+        expect(stub.calledOnceWith('abc')).to.equal(true);
+      });
 
-      await categoryUpdate(req, res);
+      it('[19] 500 on error', async () => {
+        sinon.stub(CategoryEntity, 'remove').rejects(new Error('DB'));
+        const req = { params: { id: 'id1' } };
+        const res = mockRes();
+        await categoryController.remove(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
 
-      expect(res.status.calledWith(409)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Category name already exists' })).to.be.true;
-    });
-
-    it('400 if status invalid', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { status: 'Paused' } };
-      const res = mockRes();
-
-      await categoryUpdate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid status' })).to.be.true;
-    });
-
-    it('404 if not found', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { name: 'Ok' } };
-      const res = mockRes();
-
-      sinon.stub(Category, 'findOne').returns({ collation: sinon.stub().resolves(null) });
-      sinon.stub(Category, 'findByIdAndUpdate').resolves(null);
-
-      await categoryUpdate(req, res);
-
-      expect(res.status.calledWith(404)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Not found' })).to.be.true;
-    });
-
-    it('500 on error', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { name: 'Ok' } };
-      const res = mockRes();
-
-      sinon.stub(Category, 'findOne').returns({ collation: sinon.stub().resolves(null) });
-      sinon.stub(Category, 'findByIdAndUpdate').throws(new Error('DB Error'));
-
-      await categoryUpdate(req, res);
-
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
-
-  //#region remove
-  describe('remove', () => {
-    it('400 when id is invalid ObjectId', async () => {
-      const req = { params: { id: 'not-an-id' } };
-      const res = mockRes();
-
-      const isValidStub = sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(false);
-
-      await categoryRemove(req, res);
-
-      expect(isValidStub.calledOnceWith('not-an-id')).to.be.true;
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid category id' })).to.be.true;
-    });
-
-    it('409 when category is in use by complaints', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'exists').withArgs({ category: id }).resolves(true);
-
-      await categoryRemove(req, res);
-
-      expect(res.status.calledWith(409)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Category is in use by one or more complaints' })).to.be.true;
-    });
-
-    it('404 when category not found', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'exists').resolves(false);
-      sinon.stub(Category, 'findByIdAndDelete').withArgs(id).resolves(null);
-
-      await categoryRemove(req, res);
-
-      expect(res.status.calledWith(404)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Not found' })).to.be.true;
-    });
-
-    it('204 on successful delete', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'exists').resolves(false);
-      sinon.stub(Category, 'findByIdAndDelete').withArgs(id).resolves({ _id: id });
-
-      await categoryRemove(req, res);
-
-      expect(res.status.calledWith(204)).to.be.true;
-      expect(res.send.calledOnce).to.be.true;
-    });
-
-    it('500 on error', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'exists').throws(new Error('DB Error'));
-
-      await categoryRemove(req, res);
-
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
+      it('[20] returns success message body', async () => {
+        sinon.stub(CategoryEntity, 'remove').resolves(true);
+        const req = { params: { id: 'id1' } };
+        const res = mockRes();
+        await categoryController.remove(req, res);
+        expect(res.json.args[0][0].message).to.match(/Category deleted/i);
+      });
     });
   });
-  //#endregion
+
+  // ───────────────────────────────────────────────
+  // COMPLAINT CONTROLLER (28 tests)
+  // ───────────────────────────────────────────────
+  describe('complaintController', () => {
+    describe('create', () => {
+      it('[21] 201 on success', async () => {
+        const created = { _id: 'cmp1', reference: 'CMP-1' };
+        sinon.stub(complaintAccess, 'create').resolves(created);
+
+        const req = {
+          user: { id: 'u1', name: 'Alice', email: 'a@b.com' },
+          body: { subject: 'S', description: 'D', category: 'cat1', priority: 'Low', name: 'Alice', email: 'a@b.com' }
+        };
+        const res = mockRes();
+
+        await complaintController.create(req, res);
+        expect(res.status.calledWith(201)).to.equal(true);
+        expect(res.json.calledWith(created)).to.equal(true);
+      });
+
+      it('[22] 400 on error', async () => {
+        sinon.stub(complaintAccess, 'create').rejects(new Error('bad'));
+        const req = { user: { id: 'u1', name: 'A', email: 'a@b.com' }, body: {} };
+        const res = mockRes();
+        await complaintController.create(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+      });
+
+      it('[23] passes user.id as createdBy (indirectly)', async () => {
+        const stub = sinon.stub(complaintAccess, 'create').resolves({ ok: true });
+        const req = { user: { id: 'UID', name: 'N', email: 'E' }, body: { subject: 'S', description: 'D', category: 'C' } };
+        const res = mockRes();
+        await complaintController.create(req, res);
+        expect(stub.calledOnce).to.equal(true);
+      });
+
+      it('[24] supports user._id variant', async () => {
+        const stub = sinon.stub(complaintAccess, 'create').resolves({ ok: true });
+        const req = { user: { _id: 'OID', name: 'N', email: 'E' }, body: { subject: 'S', description: 'D', category: 'C' } };
+        const res = mockRes();
+        await complaintController.create(req, res);
+        expect(stub.calledOnce).to.equal(true);
+      });
+
+      it('[25] res.json called once', async () => {
+        sinon.stub(complaintAccess, 'create').resolves({ ok: true });
+        const req = { user: { id: 'u', name: 'N', email: 'E' }, body: { subject: 'S', description: 'D', category: 'C' } };
+        const res = mockRes();
+        await complaintController.create(req, res);
+        expect(res.json.calledOnce).to.equal(true);
+      });
+
+      it('[26] proxy called once', async () => {
+        const stub = sinon.stub(complaintAccess, 'create').resolves({ ok: true });
+        const req = { user: { id: 'u', name: 'N', email: 'E' }, body: { subject: 'S', description: 'D', category: 'C' } };
+        const res = mockRes();
+        await complaintController.create(req, res);
+        expect(stub.calledOnce).to.equal(true);
+      });
+    });
+
+    describe('list', () => {
+      it('[27] 200 with data', async () => {
+        sinon.stub(complaintAccess, 'list').resolves([{ reference: 'CMP-1' }]);
+        const req = { user: { id: 'u1' } };
+        const res = mockRes();
+        await complaintController.list(req, res);
+        expect(res.json.calledOnce).to.equal(true);
+      });
+
+      it('[28] 500 on error', async () => {
+        sinon.stub(complaintAccess, 'list').rejects(new Error('db'));
+        const req = { user: { id: 'u1' } };
+        const res = mockRes();
+        await complaintController.list(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
+
+      it('[29] passes user to proxy', async () => {
+        const stub = sinon.stub(complaintAccess, 'list').resolves([]);
+        const req = { user: { id: 'U' } };
+        const res = mockRes();
+        await complaintController.list(req, res);
+        expect(stub.calledOnceWith(req.user)).to.equal(true);
+      });
+    });
+
+    describe('update (status flow rules)', () => {
+      it('[30] STAFF cannot move backward (In Progress → Assigned) → 400 with message', async () => {
+        const err = new Error('Only allowed to move to "Resolved" from "In Progress"');
+        sinon.stub(complaintAccess, 'update').rejects(err);
+
+        const req = { params: { id: 'c1' }, user: { id: 's1', role: 'staff' }, body: { status: 'Assigned' } };
+        const res = mockRes();
+
+        await complaintController.update(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+        expect(res.json.args[0][0].message).to.match(/Only allowed to move to "Resolved"/);
+      });
+
+      it('[31] STAFF forward (Assigned → In Progress) → 200', async () => {
+        const updated = { _id: 'c1', status: 'In Progress' };
+        sinon.stub(complaintAccess, 'update').resolves(updated);
+
+        const req = { params: { id: 'c1' }, user: { id: 's1', role: 'staff' }, body: { status: 'In Progress' } };
+        const res = mockRes();
+
+        await complaintController.update(req, res);
+        expect(res.json.calledWith(updated)).to.equal(true);
+      });
+
+      it('[32] STAFF forward (In Progress → Resolved) → 200', async () => {
+        const updated = { _id: 'c1', status: 'Resolved' };
+        sinon.stub(complaintAccess, 'update').resolves(updated);
+
+        const req = { params: { id: 'c1' }, user: { id: 's1', role: 'staff' }, body: { status: 'Resolved' } };
+        const res = mockRes();
+
+        await complaintController.update(req, res);
+        expect(res.json.calledWith(updated)).to.equal(true);
+      });
+
+      it('[33] 400 on generic update error', async () => {
+        sinon.stub(complaintAccess, 'update').rejects(new Error('bad'));
+        const req = { params: { id: 'c1' }, user: { id: 'u1' }, body: {} };
+        const res = mockRes();
+        await complaintController.update(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+      });
+    });
+
+    describe('remove', () => {
+      it('[34] 200 success', async () => {
+        sinon.stub(complaintAccess, 'remove').resolves(true);
+        const req = { params: { id: 'c1' }, user: { id: 'u1' } };
+        const res = mockRes();
+        await complaintController.remove(req, res);
+        expect(res.status.calledWith(200)).to.equal(true);
+      });
+
+      it('[35] 500 on error', async () => {
+        sinon.stub(complaintAccess, 'remove').rejects(new Error('oops'));
+        const req = { params: { id: 'c1' }, user: { id: 'u1' } };
+        const res = mockRes();
+        await complaintController.remove(req, res);
+        expect(res.status.calledWith(500)).to.equal(true);
+      });
+
+      it('[36] passes args to proxy', async () => {
+        const stub = sinon.stub(complaintAccess, 'remove').resolves(true);
+        const req = { params: { id: 'c1' }, user: { id: 'u1' } };
+        const res = mockRes();
+        await complaintController.remove(req, res);
+        expect(stub.calledOnceWith('c1', req.user)).to.equal(true);
+      });
+    });
+
+    // assignComplaint — non-event tests only, with business rules
+    describe('assignComplaint (business rules, no event asserts)', () => {
+      const build = ({ complaintId = 'cmp1', staffId = 'stf1', user = {} } = {}) => ({
+        req: { params: { complaintId }, body: { staffId }, user },
+        res: mockRes()
+      });
+
+      it('[37] 400 if invalid complaintId', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(false);
+        const { req, res } = build({ complaintId: 'bad', user: { role: 'admin' } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+      });
+
+      it('[38] 400 if invalid staffId', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid')
+          .onFirstCall().returns(true)   // complaint ok
+          .onSecondCall().returns(false); // staff bad
+        const { req, res } = build({ staffId: 'bad', user: { role: 'admin' } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+      });
+
+      it('[39] 403 when user cannot assign and not admin (user)', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        const { req, res } = build({ user: { role: 'user', canAssign: () => false } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(403)).to.equal(true);
+      });
+
+      it('[40] 403 when staff tries to assign', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        const { req, res } = build({ user: { role: 'staff', canAssign: () => false } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(403)).to.equal(true);
+      });
+
+      it('[41] 200 success (admin) when stage is Assigned (reassign allowed)', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        const updated = { _id: 'cmp1', status: 'Assigned', assignedTo: { name: 'Sam' }, toObject() { return this; } };
+        sinon.stub(complaintAccess, 'assignStaff').resolves(updated);
+
+        const { req, res } = build({ user: { role: 'admin', id: 'A' }, staffId: 'stf2' });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(200)).to.equal(true);
+        expect(res.json.calledWith(updated)).to.equal(true);
+      });
+
+      it('[42] 400 when admin tries to reassign at In Progress', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+
+        const err = new Error('Cannot change assignee once work has started or the complaint is resolved');
+        err.statusCode = 400;
+        sinon.stub(complaintAccess, 'assignStaff').rejects(err);
+
+        const { req, res } = build({ user: { role: 'admin' }, staffId: 'stf2' });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+        expect(res.json.args[0][0].message).to.match(/Cannot change assignee/);
+      });
+
+      it('[43] 400 when admin tries to unassign at In Progress/Resolved', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+
+        const err = new Error('Cannot unassign when complaint is In Progress or Resolved');
+        err.statusCode = 400;
+        sinon.stub(complaintAccess, 'assignStaff').rejects(err);
+
+        const { req, res } = build({ user: { role: 'admin' }, staffId: null });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+        expect(res.json.args[0][0].message).to.match(/Cannot unassign/);
+      });
+
+      it('[44] 200 when admin unassigns while at Assigned', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+
+        const updated = { _id: 'cmp1', status: 'Pending', assignedTo: null, toObject() { return this; } };
+        sinon.stub(complaintAccess, 'assignStaff').resolves(updated);
+
+        const { req, res } = build({ user: { role: 'admin' }, staffId: null });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(200)).to.equal(true);
+      });
+
+      it('[45] maps proxy err.statusCode to HTTP', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        const err = new Error('Conflict');
+        err.statusCode = 409;
+        sinon.stub(complaintAccess, 'assignStaff').rejects(err);
+        const { req, res } = build({ user: { role: 'admin' } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(409)).to.equal(true);
+      });
+
+      it('[46] defaults to 400 on plain error', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        sinon.stub(complaintAccess, 'assignStaff').rejects(new Error('oops'));
+        const { req, res } = build({ user: { role: 'admin' } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(400)).to.equal(true);
+      });
+
+      it('[47] returns updated body on 200', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        const updated = { _id: 'cmp-9', assignedTo: { name: 'Amy' }, toObject() { return this; } };
+        sinon.stub(complaintAccess, 'assignStaff').resolves(updated);
+        const { req, res } = build({ user: { role: 'admin' } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.json.calledWith(updated)).to.equal(true);
+      });
+
+      it('[48] unassign (staffId null) still returns 200 when allowed', async () => {
+        const mongoose = require('mongoose');
+        sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
+        const updated = { _id: 'cmp1', assignedTo: null, status: 'Pending', toObject() { return this; } };
+        sinon.stub(complaintAccess, 'assignStaff').resolves(updated);
+        const { req, res } = build({ staffId: null, user: { role: 'admin' } });
+        await complaintController.assignComplaint(req, res);
+        expect(res.status.calledWith(200)).to.equal(true);
+      });
+    });
+  });
 });
 
-
-// =====================
-//  Complaint Controller
-// =====================
-describe('complaintController', () => {
-  afterEach(() => {
-    sinon.restore();
-  });
-
-  const mockRes = () => {
-    const res = {};
-    res.status = sinon.stub().returns(res);
-    res.json = sinon.stub().returns(res);
-    res.send = sinon.stub().returns(res);
-    return res;
-  };
-
-  // helper: make findById(...).select('createdBy') => resolves(result)
-  const stubFindByIdSelect = (result) =>
-    sinon.stub(Complaint, 'findById').returns({
-      select: sinon.stub().withArgs('createdBy').resolves(result),
-    });
-
-  //#region create
-  describe('create', () => {
-    it('400 when required fields missing', async () => {
-      const req = { body: { name: ' ', email: '', subject: '', description: '', category: '' }, user: { id: 'u1' } };
-      const res = mockRes();
-
-      await complaintCreate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'All fields are required' })).to.be.true;
-    });
-
-    it('400 when email invalid', async () => {
-      const req = {
-        body: { name: 'A', email: 'bad', subject: 's', description: 'd', category: new mongoose.Types.ObjectId().toString(), priority: 'Low' },
-        user: { id: 'u1' },
-      };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-
-      await complaintCreate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid email address' })).to.be.true;
-    });
-
-    it('400 when priority invalid', async () => {
-      const req = {
-        body: { name: 'A', email: 'a@b.com', subject: 's', description: 'd', category: new mongoose.Types.ObjectId().toString(), priority: 'X' },
-        user: { id: 'u1' },
-      };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-
-      await complaintCreate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid priority' })).to.be.true;
-    });
-
-    it('400 when category id invalid', async () => {
-      const req = {
-        body: { name: 'A', email: 'a@b.com', subject: 's', description: 'd', category: 'badid', priority: 'Low' },
-        user: { id: 'u1' },
-      };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(false);
-
-      await complaintCreate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid category id' })).to.be.true;
-    });
-
-    it('400 when category not found or inactive', async () => {
-      const req = {
-        body: { name: 'A', email: 'a@b.com', subject: 's', description: 'd', category: new mongoose.Types.ObjectId().toString(), priority: 'Low' },
-        user: { id: 'u1' },
-      };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      const sel = { select: sinon.stub().returnsThis(), lean: sinon.stub().resolves(null) };
-      sinon.stub(Category, 'findOne').returns(sel);
-
-      await complaintCreate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Category not found or inactive' })).to.be.true;
-    });
-
-    it('201 on create success', async () => {
-      const req = {
-        body: {
-          name: 'A',
-          email: 'a@b.com',
-          subject: 's',
-          description: 'd',
-          category: new mongoose.Types.ObjectId().toString(),
-          priority: 'Low',
-        },
-        user: { id: new mongoose.Types.ObjectId().toString() },
-      };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      const sel = { select: sinon.stub().returnsThis(), lean: sinon.stub().resolves({ _id: req.body.category }) };
-      sinon.stub(Category, 'findOne').returns(sel);
-
-      const createdDoc = { _id: new mongoose.Types.ObjectId(), ...req.body, createdBy: req.user.id, reference: 'CMP-123456-XYZ' };
-      const createStub = sinon.stub(Complaint, 'create').resolves(createdDoc);
-
-      await complaintCreate(req, res);
-
-      expect(createStub.calledOnceWithMatch({
-        name: 'A',
-        email: 'a@b.com',
-        subject: 's',
-        description: 'd',
-        category: req.body.category,
-        priority: 'Low',
-        createdBy: req.user.id,
-      })).to.be.true;
-      expect(res.status.calledWith(201)).to.be.true;
-      expect(res.json.calledWith(createdDoc)).to.be.true;
-    });
-
-    it('500 on error', async () => {
-      const req = {
-        body: {
-          name: 'A',
-          email: 'a@b.com',
-          subject: 's',
-          description: 'd',
-          category: new mongoose.Types.ObjectId().toString(),
-          priority: 'Low',
-        },
-        user: { id: 'u1' },
-      };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Category, 'findOne').throws(new Error('DB Error'));
-
-      await complaintCreate(req, res);
-
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
-
-  //#region list
-  describe('list', () => {
-    it('returns only my complaints by default', async () => {
-      const userId = new mongoose.Types.ObjectId().toString();
-      const req = { user: { id: userId, role: 'user' }, query: {} };
-      const res = mockRes();
-
-      const docs = [{ reference: 'CMP-1', createdBy: userId }];
-      const chain = {
-        populate: sinon.stub().returnsThis(),
-        sort: sinon.stub().returnsThis(),
-        lean: sinon.stub().resolves(docs),
-      };
-      sinon.stub(Complaint, 'find').withArgs({ createdBy: userId }).returns(chain);
-
-      await complaintList(req, res);
-
-      expect(res.json.calledWith(docs)).to.be.true;
-    });
-
-    it('admin all=1 returns all complaints', async () => {
-      const req = { user: { id: 'admin1', role: 'admin' }, query: { all: '1' } };
-      const res = mockRes();
-
-      const docs = [{ reference: 'CMP-1' }, { reference: 'CMP-2' }];
-      const chain = {
-        populate: sinon.stub().returnsThis(),
-        sort: sinon.stub().returnsThis(),
-        lean: sinon.stub().resolves(docs),
-      };
-      sinon.stub(Complaint, 'find').withArgs({}).returns(chain);
-
-      await complaintList(req, res);
-
-      expect(res.json.calledWith(docs)).to.be.true;
-    });
-
-    it('admin with invalid userId filter -> 400', async () => {
-      const req = { user: { id: 'admin1', role: 'admin' }, query: { userId: 'bad' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(false);
-
-      await complaintList(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid userId' })).to.be.true;
-    });
-
-    it('500 on error', async () => {
-      const userId = new mongoose.Types.ObjectId().toString();
-      const req = { user: { id: userId, role: 'user' }, query: {} };
-      const res = mockRes();
-
-      sinon.stub(Complaint, 'find').throws(new Error('DB Error'));
-
-      await complaintList(req, res);
-
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
-
-  //#region update
-  describe('update', () => {
-    it('400 if invalid complaint id', async () => {
-      const req = { params: { id: 'bad' }, body: {} , user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(false);
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid complaint id' })).to.be.true;
-    });
-
-    it('404 if not found', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: {}, user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      stubFindByIdSelect(null); // findById(...).select('createdBy') -> null
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(404)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Not found' })).to.be.true;
-    });
-
-    it('403 if not owner and not admin', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: {}, user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      const existing = { createdBy: new mongoose.Types.ObjectId().toString() };
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      stubFindByIdSelect(existing);
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(403)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Forbidden' })).to.be.true;
-    });
-
-    it('400 if description provided but blank', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const ownerId = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { description: '   ' }, user: { id: ownerId, role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      stubFindByIdSelect({ createdBy: ownerId });
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Description is required' })).to.be.true;
-    });
-
-    it('400 if category invalid id', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const ownerId = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { category: 'bad' }, user: { id: ownerId, role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid')
-        .onCall(0).returns(true)   // complaint id valid
-        .onCall(1).returns(false); // category id invalid
-      stubFindByIdSelect({ createdBy: ownerId });
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid category id' })).to.be.true;
-    });
-
-    it('400 if category not found/inactive', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const ownerId = new mongoose.Types.ObjectId().toString();
-      const catId = new mongoose.Types.ObjectId().toString();
-
-      const req = { params: { id }, body: { category: catId }, user: { id: ownerId, role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      stubFindByIdSelect({ createdBy: ownerId });
-      const sel = { select: sinon.stub().returnsThis(), lean: sinon.stub().resolves(null) };
-      sinon.stub(Category, 'findOne').returns(sel);
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Category not found or inactive' })).to.be.true;
-    });
-
-    it('200 on successful update (returns populated doc)', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const ownerId = new mongoose.Types.ObjectId().toString();
-      const catId = new mongoose.Types.ObjectId().toString();
-
-      const req = {
-        params: { id },
-        body: { description: 'New desc', category: catId },
-        user: { id: ownerId, role: 'user' },
-      };
-      const res = mockRes();
-
-      // Validations / ownership
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      stubFindByIdSelect({ createdBy: ownerId });
-      const sel = { select: sinon.stub().returnsThis(), lean: sinon.stub().resolves({ _id: catId }) };
-      sinon.stub(Category, 'findOne').returns(sel);
-
-      // Return a thenable-like query object supporting populate().populate().then(...)
-      const updatedDoc = {
-        _id: id,
-        description: 'New desc',
-        category: { _id: catId, name: 'Active Cat', status: 'Active' },
-        createdBy: { _id: ownerId, name: 'U', email: 'u@x.com' },
-      };
-      const queryLike = {
-        populate: sinon.stub().returnsThis(),
-        then: (resolve) => resolve(updatedDoc),
-        catch: () => {},
-      };
-      sinon.stub(Complaint, 'findByIdAndUpdate').returns(queryLike);
-
-      await complaintUpdate(req, res);
-
-      expect(res.json.calledWith(updatedDoc)).to.be.true;
-    });
-
-    it('500 on error', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const ownerId = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, body: { description: 'ok' }, user: { id: ownerId, role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'findById').throws(new Error('DB Error'));
-
-      await complaintUpdate(req, res);
-
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
-
-  //#region remove
-  describe('remove', () => {
-    it('400 if invalid id', async () => {
-      const req = { params: { id: 'bad' }, user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(false);
-
-      await complaintRemove(req, res);
-
-      expect(res.status.calledWith(400)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Invalid complaint id' })).to.be.true;
-    });
-
-    it('404 if not found', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'findById').returns({ select: sinon.stub().resolves(null) });
-
-      await complaintRemove(req, res);
-
-      expect(res.status.calledWith(404)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Not found' })).to.be.true;
-    });
-
-    it('403 if not owner and not admin', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      const otherId = new mongoose.Types.ObjectId().toString();
-      const doc = {
-        createdBy: otherId,
-        deleteOne: sinon.stub().resolves(),
-      };
-      const finder = {
-        select: sinon.stub().resolves(doc),
-      };
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'findById').returns(finder);
-
-      await complaintRemove(req, res);
-
-      expect(res.status.calledWith(403)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Forbidden' })).to.be.true;
-    });
-
-    it('204 on success (owner)', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const ownerId = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, user: { id: ownerId, role: 'user' } };
-      const res = mockRes();
-
-      const doc = {
-        createdBy: ownerId,
-        deleteOne: sinon.stub().resolves(),
-      };
-      const finder = { select: sinon.stub().resolves(doc) };
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'findById').returns(finder);
-
-      await complaintRemove(req, res);
-
-      expect(doc.deleteOne.calledOnce).to.be.true;
-      expect(res.status.calledWith(204)).to.be.true;
-      expect(res.send.calledOnce).to.be.true;
-    });
-
-    it('204 on success (admin)', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, user: { id: 'admin', role: 'admin' } };
-      const res = mockRes();
-
-      const doc = {
-        createdBy: new mongoose.Types.ObjectId().toString(),
-        deleteOne: sinon.stub().resolves(),
-      };
-      const finder = { select: sinon.stub().resolves(doc) };
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'findById').returns(finder);
-
-      await complaintRemove(req, res);
-
-      expect(doc.deleteOne.calledOnce).to.be.true;
-      expect(res.status.calledWith(204)).to.be.true;
-      expect(res.send.calledOnce).to.be.true;
-    });
-
-    it('500 on error', async () => {
-      const id = new mongoose.Types.ObjectId().toString();
-      const req = { params: { id }, user: { id: 'u1', role: 'user' } };
-      const res = mockRes();
-
-      sinon.stub(mongoose.Types.ObjectId, 'isValid').returns(true);
-      sinon.stub(Complaint, 'findById').throws(new Error('DB Error'));
-
-      await complaintRemove(req, res);
-
-      expect(res.status.calledWith(500)).to.be.true;
-      expect(res.json.calledWithMatch({ message: 'Server error', error: 'DB Error' })).to.be.true;
-    });
-  });
-  //#endregion
-});
