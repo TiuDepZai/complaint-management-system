@@ -253,6 +253,7 @@ class ComplaintEntity {
       throw new Error('Only complaints in "Assigned" can be unassigned');
     }
 
+    
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
       {
@@ -268,6 +269,10 @@ class ComplaintEntity {
       { path: 'category',   select: 'name' },
       { path: 'createdBy',  select: 'name email' },
     ]);
+
+    complaintEvents.emit('complaintAssigned', updated);
+
+
 
     if (!updated) throw new Error('Complaint not found');
     // (No event for unassign — same behavior as before)
