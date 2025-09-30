@@ -73,24 +73,6 @@ const assignComplaint = async (req, res) => {
       staffId || null
     );
 
-    // emit a PLAIN object so observers see stable fields
-    const payloadComplaint = typeof updatedComplaint.toObject === 'function'
-      ? updatedComplaint.toObject({ depopulate: false })
-      : updatedComplaint;
-
-    const actor = {
-      _id: req.user._id || req.user.id,
-      name: req.user.name,
-      role: req.user.role,
-      email: req.user.email,
-    };
-
-    complaintEvents.emit('complaintAssigned', {
-      complaint: payloadComplaint,
-      actor,
-      action: staffId ? 'assign' : 'unassign',
-    });
-
     res.status(200).json(updatedComplaint);
   } catch (error) {
     const status = error.statusCode || 400;

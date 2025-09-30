@@ -1,28 +1,29 @@
+// entities/NotificationEntities.js
 const NotificationFactory = require('../factories/NotificationFactory');
 const NotificationModel = require('../models/Notification');
 
 class NotificationEntity {
-  constructor({ userId, type, message, metadata, subject }) {
+  constructor({ userId, type, message, subject, metadata }) {
     this.userId = userId;
     this.type = type || 'job_assigned';
+    this.subject = subject || `Notification: ${this.type}`;
     this.message = message;
-    this.subject = subject || null; // <-- NEW
     this.metadata = metadata || {};
   }
 
   async send(user) {
     try {
-      // --- Email notification (if user has an email) ---
+      // Email (optional)
       if (user && user.email) {
         const emailNotif = NotificationFactory.createNotification('email', {
           to: user.email,
-          subject: this.subject || `Notification: ${this.type}`, // <-- use custom subject if present
-          message: this.message,
+          subject: this.subject, // <-- use provided subject
+          message: this.message, // <-- use provided message
         });
         await emailNotif.send();
       }
 
-      // --- Web notification ---
+      // Web notification
       const webNotif = NotificationFactory.createNotification('web', {
         userId: this.userId,
         type: this.type,

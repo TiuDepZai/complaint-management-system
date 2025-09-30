@@ -195,7 +195,7 @@ class ComplaintEntity {
     return true;
   }
 
-static async assignStaff(complaintId, staffId) {
+  static async assignStaff(complaintId, staffId) {
     // Get current status + assignee first
     const current = await ComplaintModel.findById(complaintId)
       .select('status assignedTo subject reference');
@@ -207,22 +207,18 @@ static async assignStaff(complaintId, staffId) {
     // If work has started or finished, show action-specific errors
     if (isLocked) {
       if (staffId) {
-        // attempting to (re)assign
         throw new Error('Cannot change assignee when complaint in progress or resolved');
       } else {
-        // attempting to unassign
         throw new Error('Cannot unassign when complaint in progress or resolved');
       }
     }
 
     // ---- ASSIGN / REASSIGN ----
     if (staffId) {
-      // Allowed only when current status is Pending or Assigned
       if (status !== 'Pending' && status !== 'Assigned') {
         throw new Error('Cannot assign at this stage');
       }
 
-      // Validate staff user
       const staff = await UserModel.findById(staffId).select('_id role');
       if (!staff || String(staff.role).toLowerCase() !== 'staff') {
         throw new Error('Invalid staff user');
@@ -245,11 +241,14 @@ static async assignStaff(complaintId, staffId) {
       ]);
 
       if (!updated) throw new Error('Complaint not found');
+
+      // 🔔 emit INSIDE the entity (payload is the populated complaint)
+      complaintEvents.emit('complaintAssigned', updated);
+
       return updated;
     }
 
-    // ---- UNASSIGN ----
-    // Only allowed when currently Assigned
+    // ---- UNASSIGN ---- (only allowed when currently Assigned)
     if (status !== 'Assigned') {
       throw new Error('Only complaints in "Assigned" can be unassigned');
     }
@@ -271,9 +270,9 @@ static async assignStaff(complaintId, staffId) {
     ]);
 
     if (!updated) throw new Error('Complaint not found');
+    // (No event for unassign — same behavior as before)
     return updated;
   }
-
 }
 
 module.exports = ComplaintEntity;
