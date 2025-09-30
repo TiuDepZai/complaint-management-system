@@ -32,21 +32,6 @@ class EmailNotification {
       text: this.message,
       html: this.html,
     });
-    // const transporter = nodemailer.createTransport({
-    //   service: 'gmail', 
-    //   auth: {
-    //     user: process.env.EMAIL_USER,
-    //     pass: process.env.EMAIL_PASS,
-    //   },
-    // });
-
-    // await transporter.sendMail({
-    //   from: `"Complaint Hub" <${process.env.EMAIL_USER}>`,
-    //   to: this.to,
-    //   subject: this.subject,
-    //   text: this.message,
-    // });
-
     console.log(`📧 Email sent to ${this.to}`);
   }
 }
