@@ -32,7 +32,6 @@ class EmailNotification {
       text: this.message,
       html: this.html,
     });
-    console.log(`📧 Email sent to ${this.to}`);
   }
 }
 
@@ -52,7 +51,6 @@ class WebNotification {
       metadata: this.metadata,
       isRead: false,
     });
-    console.log(`🔔 Web notification created for user ${this.userId}`);
   }
 }
 
