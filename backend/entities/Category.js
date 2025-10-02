@@ -70,8 +70,9 @@ class CategoryEntity {
     static async remove(id) {
         if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid category ID');
         
-        const inUse = await ComplaintModel.exists({ category: id });
-        if (inUse) throw new Error('Category is in use and cannot be deleted');
+        const inUse = await ComplaintModel.find({ category: id });
+        console.log(inUse);
+        if (inUse.length > 0) throw new Error('Category is in use and cannot be deleted');
 
         const deleted = await CategoryModel.findByIdAndDelete(id);
         if (!deleted) throw new Error('Category not found');
