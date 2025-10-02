@@ -4,6 +4,9 @@ const UserModel = require('../models/User');
 const mongoose = require('mongoose');
 const complaintEvents = require('../events/complaintsEvent');
 
+const AssignmentContext = require('../strategies/AssignmentContext');
+const ImmediateAssignStrategy = require('../strategies/ImmediateAssignStrategy');
+const LoadBalancedAssignStrategy = require('../strategies/LoadBalancedAssignStrategy');
 
 // tolerant helpers: work with OOP user or raw { role }
 const isAdmin = (u) =>
@@ -194,88 +197,89 @@ class ComplaintEntity {
     await complaint.deleteOne();
     return true;
   }
-
-  static async assignStaff(complaintId, staffId) {
-    // Get current status + assignee first
+  
+  static async assignStaff(complaintId, staffId, strategyType = 'loadBalanced') {
+    // Fetch current complaint
     const current = await ComplaintModel.findById(complaintId)
       .select('status assignedTo subject reference');
     if (!current) throw new Error('Complaint not found');
 
     const status = current.status;
     const isLocked = status === 'In Progress' || status === 'Resolved';
-
-    // If work has started or finished, show action-specific errors
     if (isLocked) {
-      if (staffId) {
-        throw new Error('Cannot change assignee when complaint in progress or resolved');
-      } else {
-        throw new Error('Cannot unassign when complaint in progress or resolved');
-      }
+      if (staffId) throw new Error('Cannot change assignee when complaint in progress or resolved');
+      else throw new Error('Cannot unassign when complaint in progress or resolved');
     }
 
-    // ---- ASSIGN / REASSIGN ----
-    if (staffId) {
-      if (status !== 'Pending' && status !== 'Assigned') {
-        throw new Error('Cannot assign at this stage');
-      }
-
-      const staff = await UserModel.findById(staffId).select('_id role');
-      if (!staff || String(staff.role).toLowerCase() !== 'staff') {
-        throw new Error('Invalid staff user');
-      }
+    // --- UNASSIGN branch ---
+    if (!staffId) {
+      if (status !== 'Assigned') throw new Error('Only complaints in "Assigned" can be unassigned');
 
       const updated = await ComplaintModel.findByIdAndUpdate(
         complaintId,
-        {
-          $set: {
-            assignedTo: staff._id,
-            assignedDate: new Date(),
-            status: 'Assigned',
-          },
-        },
+        { $set: { assignedTo: null, assignedDate: null, status: 'Pending' } },
         { new: true, runValidators: true }
       ).populate([
         { path: 'assignedTo', select: 'name email role' },
-        { path: 'category',   select: 'name' },
-        { path: 'createdBy',  select: 'name email' },
+        { path: 'category', select: 'name' },
+        { path: 'createdBy', select: 'name email' },
       ]);
 
-      if (!updated) throw new Error('Complaint not found');
-
-      // 🔔 emit INSIDE the entity (payload is the populated complaint)
       complaintEvents.emit('complaintAssigned', updated);
-
       return updated;
     }
 
-    // ---- UNASSIGN ---- (only allowed when currently Assigned)
-    if (status !== 'Assigned') {
-      throw new Error('Only complaints in "Assigned" can be unassigned');
+    // --- Validate staff user ---
+    const staff = await UserModel.findById(staffId).select('_id role');
+    if (!staff || String(staff.role).toLowerCase() !== 'staff') {
+      throw new Error('Invalid staff user');
     }
 
-    
+    if (status !== 'Pending' && status !== 'Assigned') {
+      throw new Error('Cannot assign at this stage');
+    }
+
+    // --- Pick Strategy ---
+    let strategy;
+    if (strategyType === 'loadBalanced') {
+      strategy = new LoadBalancedAssignStrategy();
+    } else if (strategyType === 'immediate') {
+      strategy = new ImmediateAssignStrategy();
+    } else {
+      throw new Error(`Unknown assignment strategy: ${strategyType}`);
+    }
+
+    const context = new AssignmentContext(strategy);
+
+    // --- Let strategy decide ---
+    let updatedComplaint;
+    try {
+      updatedComplaint = await context.assign(current, staff._id);
+    } catch (err) {
+      // 🚫 If strategy fails (e.g. overloaded), stop here.
+      throw new Error(err.message || 'Assignment failed by strategy');
+    }
+
+    // --- Persist the strategy result ---
     const updated = await ComplaintModel.findByIdAndUpdate(
       complaintId,
       {
         $set: {
-          assignedTo: null,
-          assignedDate: null,
-          status: 'Pending',
+          assignedTo: updatedComplaint.assignedTo,
+          assignedDate: updatedComplaint.assignedDate,
+          status: updatedComplaint.status,
         },
       },
       { new: true, runValidators: true }
     ).populate([
       { path: 'assignedTo', select: 'name email role' },
-      { path: 'category',   select: 'name' },
-      { path: 'createdBy',  select: 'name email' },
+      { path: 'category', select: 'name' },
+      { path: 'createdBy', select: 'name email' },
     ]);
 
-    complaintEvents.emit('complaintAssigned', updated);
-
-
-
     if (!updated) throw new Error('Complaint not found');
-    // (No event for unassign — same behavior as before)
+
+    complaintEvents.emit('complaintAssigned', updated);
     return updated;
   }
 }
