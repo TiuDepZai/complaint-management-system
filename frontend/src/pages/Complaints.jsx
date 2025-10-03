@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import ComplaintForm from "../components/ComplaintForm";
 import EditComplaintModal from "../components/EditComplaintModal";
 import axiosInstance from "../axiosConfig";
-import { STATUS_OPTIONS, getAssigneeDisplay, normalizeStatus } from "../utils/complaints";
+import { getAssigneeDisplay, normalizeStatus } from "../utils/complaints";
 import ComplaintsTable from "../components/complaints/ComplaintsTable";
 
 /* helper: robust check if complaint is assigned to current user */
@@ -49,8 +49,6 @@ export default function Complaints() {
     // auto-hide after a few seconds (optional)
     setTimeout(() => setPageError(""), 4000);
   };
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
 
   const [complaints, setComplaints] = useState([]);
   const [editingComplaint, setEditingComplaint] = useState(null);
@@ -251,7 +249,6 @@ export default function Complaints() {
   const statProgress = countBy(statsList, (c) => normalizeStatus(c.status) === "In Progress");
   const statResolved = countBy(statsList, (c) => normalizeStatus(c.status) === "Resolved");
 
-  const headerCols = showUserCol ? "grid-cols-7" : "grid-cols-6";
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 pt-28">

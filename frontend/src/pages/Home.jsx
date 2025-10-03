@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 // Local assets
@@ -20,7 +20,6 @@ export default function Home() {
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff';
-  const year = new Date().getFullYear();
 
   const handleRegisterComplaint = () => {
     const target = '/complaints?new=1';

@@ -1,5 +1,5 @@
 // components/complaints/index.js
-import { STATUS_OPTIONS, getAssigneeDisplay, normalizeStatus } from "../../utils/complaints";
+import { getAssigneeDisplay, normalizeStatus } from "../../utils/complaints";
 import { useState } from "react";
 import axiosInstance from "../../axiosConfig";
 
