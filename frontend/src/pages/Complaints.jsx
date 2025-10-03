@@ -90,22 +90,16 @@ export default function Complaints() {
   const fetchComplaints = async () => {
     if (!token) {
       setComplaints([]);
-      setLoading(false);
       return;
     }
     try {
-      setLoading(true);
-      setLoadError("");
 
       const res = await axiosInstance.get("/api/complaints", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setComplaints(res.data || []);
     } catch {
-      setLoadError("Failed to load complaints.");
-    } finally {
-      setLoading(false);
-    }
+    } 
   };
 
   useEffect(() => {
