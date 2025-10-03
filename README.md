@@ -1,5 +1,3 @@
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/0b898f79-3392-4c0b-8233-63bb3e3857a2" /># Complaint Management System (CMS)
-
 **Live:** [http://13.211.162.126/](http://13.211.162.126/)
 
 A **MERN-based** CMS where customers can register complaints and track them, and admins can manage categories and view all complaints. Authentication is **JWT-based**; UI is **React + Tailwind**; server is **Node/Express** with **MongoDB**.
